@@ -1,0 +1,70 @@
+# Комиссии и коэффициенты
+
+# Комиссия дилера
+dealer_commission:
+  Китай:
+    type: percent
+    value: 0.15
+  Корея:
+    type: fixed
+    value: 2500
+    currency: USD
+
+# Комиссия компании CarStar
+carstar_commission:
+  Китай: 16000
+  Корея: 6000
+
+# Услуги
+services:
+  broker:
+    Легковой: 10000
+    Грузовой: 10000
+    Пикап: 10000
+    Мотоцикл: 5000
+    Электричка: 10000
+    
+  epts: 15000           # ЭПТС
+  sbkts: 20000          # СБКТС (для Китая)
+  glonas: 40000         # ГЛОНАС
+  prr: 35000            # Погрузо-разгрузка
+  expertize: 2500       # Экспертиза
+  transfer: 7000        # Перегон
+  parking: 150          # Стоянка в день
+  storage_free_days: 5  # Бесплатные дни хранения
+  storage_daily: 300    # Плата за хранение после
+
+# Киргизия (сомы)
+kyrgyzstan:
+  registration_first: 1000
+  registration_second: 3000
+  laboratory: 2000
+  customs_service_percent: 0.05
+  customs_service_min: 4000
+  svh_first_day: 500
+  svh_next_days: 100
+
+# Казахстан
+kazakhstan:
+  mrp: 3692            # Месячный расчетный показатель
+  rate_light: 0.5      # для легковых
+
+# Страхование (необязательное)
+insurance:
+  default_percent: 0.002
+  vladivostok_exempt: true
+
+# Налоги
+taxes:
+  vat_import:
+    individual: 0
+    legal: 0.20
+    kyrgyzstan_legal: 0.12
+    
+  vat_sale: 0.20       # НДС при продаже
+  profit_tax: 0.20     # Налог на прибыль
+  social_tax: 0.02     # НСП 2%
+
+# Маржинальность
+markup:
+  default: 0.20        # 20% наценка
