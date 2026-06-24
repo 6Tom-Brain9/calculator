@@ -4,7 +4,6 @@ from pathlib import Path
 import requests
 import urllib3
 import yaml
-import sys
 
 # Отключаем SSL предупреждения
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -15,11 +14,11 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==================== ПРИНУДИТЕЛЬНАЯ ПЕРЕЗАГРУЗКА ====================
-if 'CONFIGS_LOADED' not in st.session_state:
-    st.cache_data.clear()
-    st.session_state.CONFIGS_LOADED = True
-    st.session_state.configs = None
+# ==================== ИНИЦИАЛИЗАЦИЯ SESSION_STATE ====================
+if 'hp_kw' not in st.session_state:
+    st.session_state.hp_kw = 0.0
+if 'hp_hp' not in st.session_state:
+    st.session_state.hp_hp = 0.0
 
 # ==================== ЗАГРУЗКА YAML ====================
 
@@ -49,19 +48,10 @@ def load_all_configs():
     }
 
 # Загружаем конфигурации
-if st.session_state.configs is None:
+if 'configs' not in st.session_state:
     st.session_state.configs = load_all_configs()
 
 CONFIGS = st.session_state.configs
-
-# ==================== ОТЛАДКА (можно удалить после проверки) ====================
-# st.write("=== ОТЛАДКА ===")
-# util = CONFIGS.get('utilization_rates', {})
-# st.write("utilization_rates loaded:", bool(util))
-# ind = util.get('individuals', {})
-# st.write("individuals keys:", list(ind.keys()))
-# if 'engine_1000_2000' in ind:
-#     st.write("engine_1000_2000:", ind['engine_1000_2000'][:2])
 
 # ==================== КУРСЫ ВАЛЮТ ====================
 
@@ -494,12 +484,40 @@ def main():
 
         engine_cc = st.number_input("🔧 Объем двигателя", min_value=0, value=1997, step=100, help="куб.см")
 
+        # ==================== МОЩНОСТЬ: СИНХРОНИЗАЦИЯ кВт и л.с. ====================
         col_hp1, col_hp2 = st.columns(2)
+        
         with col_hp1:
-            horsepower_kw = st.number_input("⚡ Мощность (кВт)", min_value=0.0, value=121.0, step=1.0)
+            hp_kw = st.number_input(
+                "⚡ Мощность (кВт)",
+                min_value=0.0,
+                value=st.session_state.hp_kw,
+                step=1.0,
+                key='hp_kw_input',
+                help="Мощность двигателя в киловаттах"
+            )
+            # Обновляем сессию и пересчитываем л.с.
+            if hp_kw != st.session_state.hp_kw:
+                st.session_state.hp_kw = hp_kw
+                st.session_state.hp_hp = hp_kw * 1.3596
+
         with col_hp2:
-            horsepower_hp = horsepower_kw * 1.3596
-            st.number_input("⚡ Мощность (л.с.)", min_value=0.0, value=round(horsepower_hp, 1), step=1.0, disabled=True)
+            hp_hp = st.number_input(
+                "⚡ Мощность (л.с.)",
+                min_value=0.0,
+                value=st.session_state.hp_hp,
+                step=1.0,
+                key='hp_hp_input',
+                help="Мощность двигателя в лошадиных силах"
+            )
+            # Обновляем сессию и пересчитываем кВт
+            if hp_hp != st.session_state.hp_hp:
+                st.session_state.hp_hp = hp_hp
+                st.session_state.hp_kw = hp_hp / 1.3596
+
+        # Используем значения из session_state для расчетов
+        horsepower_kw = st.session_state.hp_kw
+        horsepower_hp = st.session_state.hp_hp
 
         weight = st.number_input("🏋️ Масса", min_value=0, value=1800, step=100, help="кг")
         manufacture_date = st.date_input("📅 Дата выпуска", value=datetime(2022, 1, 1))
