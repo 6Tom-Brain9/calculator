@@ -90,6 +90,30 @@ def get_exchange_rates(force_refresh=False):
         'date': datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
     }
 
+# ==================== ТАМОЖЕННЫЙ СБОР ====================
+
+def calculate_customs_fee(customs_value_rub):
+    """
+    Расчет таможенного сбора за оформление
+    Постановление Правительства РФ от 28.12.2004 № 863
+    """
+    if customs_value_rub <= 200000:
+        return 1231
+    elif customs_value_rub <= 450000:
+        return 2462
+    elif customs_value_rub <= 1200000:
+        return 4924
+    elif customs_value_rub <= 2700000:
+        return 13541
+    elif customs_value_rub <= 4200000:
+        return 18465
+    elif customs_value_rub <= 5500000:
+        return 21344
+    elif customs_value_rub <= 7000000:
+        return 49240
+    else:
+        return 73860
+
 # ==================== ТАМОЖЕННАЯ ПОШЛИНА ====================
 
 def get_customs_rate_by_value(customs_value_eur, rates_config):
@@ -137,30 +161,19 @@ def calculate_customs_duty_individual(customs_value_rub, engine_cc, age_years, e
         duty_eur = engine_cc * rate
         return duty_eur * eur_rate
 
-# ==================== УТИЛЬСБОР (ИЗ YAML) ====================
+# ==================== УТИЛЬСБОР ====================
 
 def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=False, vehicle_type="Легковой", client_type="Физическое лицо"):
-    """
-    Расчет утильсбора по Постановлению № 1713 от 01.11.2025
-    Загружает коэффициенты из data_utilization_rates.yaml
-    """
     rates_config = CONFIGS.get('utilization_rates', {})
     is_old = age_years >= 3
     power_kw = horsepower_hp / 1.3596
-
-    # Базовая ставка
     base_rate = rates_config.get('base_rate', 20000)
 
-    # ============================================================
-    # ФИЗИЧЕСКИЕ ЛИЦА
-    # ============================================================
     if client_type == "Физическое лицо":
-        # ---- ЛЬГОТА ----
         if horsepower_hp <= 160 and engine_cc <= 3000:
             coeff = 0.17 if not is_old else 0.26
             return base_rate * coeff
 
-        # ---- ЭЛЕКТРОМОБИЛИ ----
         if is_electric:
             electric_rates = rates_config.get('individuals', {}).get('electric', [])
             for bracket in electric_rates:
@@ -176,12 +189,8 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
                 return base_rate * coeff
             return base_rate * 100.0
 
-        # ---- КОММЕРЧЕСКИЕ СТАВКИ ПО ОБЪЕМУ ----
-        
-        # ОБЪЕМ 1000-2000
         if 1000 < engine_cc <= 2000:
             rates_list = rates_config.get('individuals', {}).get('engine_1000_2000', [])
-            # Если список пустой — используем жестко зашитые коэффициенты
             if not rates_list:
                 if 160 < horsepower_hp <= 190:
                     coeff = 37.5 if not is_old else 74.64
@@ -223,7 +232,6 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
                         return base_rate * coeff
             return base_rate * 100.0
 
-        # ОБЪЕМ 2000-3000
         elif 2000 < engine_cc <= 3000:
             rates_list = rates_config.get('individuals', {}).get('engine_2000_3000', [])
             if not rates_list:
@@ -266,13 +274,11 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
                         return base_rate * coeff
             return base_rate * 100.0
 
-        # ОБЪЕМ 3000-3500
         elif 3000 < engine_cc <= 3500:
             rates = rates_config.get('individuals', {}).get('engine_3000_3500', {})
             coeff = rates.get('old' if is_old else 'new', 100.0)
             return base_rate * coeff
 
-        # ОБЪЕМ СВЫШЕ 3500
         elif engine_cc > 3500:
             rates = rates_config.get('individuals', {}).get('engine_over_3500', {})
             coeff = rates.get('old' if is_old else 'new', 100.0)
@@ -280,9 +286,6 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
 
         return base_rate * 100.0
 
-    # ============================================================
-    # ЮРИДИЧЕСКИЕ ЛИЦА
-    # ============================================================
     else:
         if vehicle_type in ["Грузовой", "Пикап"]:
             return rates_config.get('truck_base_rate', 150000) * 1.0
@@ -423,12 +426,20 @@ def get_service_cost(service_name, vehicle_type="Легковой", country_expo
 # ==================== КОЛБЭКИ ДЛЯ СИНХРОНИЗАЦИИ МОЩНОСТИ ====================
 
 def update_hp_from_kw():
-    """Обновляет л.с. при изменении кВт"""
     st.session_state.hp_hp = st.session_state.hp_kw * 1.3596
 
 def update_kw_from_hp():
-    """Обновляет кВт при изменении л.с."""
     st.session_state.hp_kw = st.session_state.hp_hp / 1.3596
+
+# ==================== ФОРМАТИРОВАНИЕ ЧИСЕЛ ====================
+
+def format_number(num):
+    """Форматирует число с пробелами вместо запятых: 1 500 000"""
+    return f"{num:,.0f}".replace(',', ' ')
+
+def format_money(num, currency="₽"):
+    """Форматирует деньги с пробелами, ПОЛНАЯ сумма без сокращений"""
+    return f"{format_number(num)} {currency}"
 
 # ==================== ИНТЕРФЕЙС ====================
 
@@ -490,13 +501,11 @@ def main():
 
         price = st.number_input(f"💰 Стоимость авто ({price_currency})", min_value=0.0, value=50000.0, step=5000.0)
         price_rub_preview = price * price_rate
-        st.caption(f"📌 Примерно: {price_rub_preview:,.0f} ₽ по текущему курсу")
+        st.caption(f"📌 Примерно: {format_number(price_rub_preview)} ₽ по текущему курсу")
 
         engine_cc = st.number_input("🔧 Объем двигателя", min_value=0, value=1997, step=100, help="куб.см")
 
-        # ==================== МОЩНОСТЬ: СИНХРОНИЗАЦИЯ ЧЕРЕЗ КОЛБЭКИ ====================
         col_hp1, col_hp2 = st.columns(2)
-        
         with col_hp1:
             st.number_input(
                 "⚡ Мощность (кВт)",
@@ -506,7 +515,6 @@ def main():
                 on_change=update_hp_from_kw,
                 help="Мощность двигателя в киловаттах"
             )
-
         with col_hp2:
             st.number_input(
                 "⚡ Мощность (л.с.)",
@@ -517,7 +525,6 @@ def main():
                 help="Мощность двигателя в лошадиных силах"
             )
 
-        # Используем значения из session_state для расчетов
         horsepower_kw = st.session_state.hp_kw
         horsepower_hp = st.session_state.hp_hp
 
@@ -549,6 +556,7 @@ def main():
         delivery_to_border = 1500 * rates['USD']
         customs_value = price_rub + dealer_commission + delivery_to_border
 
+        customs_fee = calculate_customs_fee(customs_value)
         customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates['EUR'])
         utilization = calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric, vehicle_type, client_type)
         excise = calculate_excise(horsepower_hp, fuel_type)
@@ -559,10 +567,11 @@ def main():
         epts_cost = get_service_cost('epts', vehicle_type, country_export)
 
         total_cost = (
-            customs_value + customs_duty + utilization +
+            customs_value + customs_fee + customs_duty + utilization +
             excise + vat + delivery_cost + broker_cost + epts_cost
         )
 
+        # ==================== ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ====================
         st.markdown("---")
         st.header("📊 РЕЗУЛЬТАТ РАСЧЕТА")
         
@@ -572,10 +581,10 @@ def main():
                         padding: 1.5rem; border-radius: 1rem; text-align: center; margin: 1rem 0;">
                 <h2 style="color: white; margin: 0;">СТОИМОСТЬ ПОД КЛЮЧ</h2>
                 <p style="color: #ffd700; font-size: 2.5rem; font-weight: bold; margin: 0.5rem 0;">
-                    {total_cost:,.0f} ₽
+                    {format_money(total_cost)}
                 </p>
                 <p style="color: #ccc; margin: 0;">
-                    {price:,.0f} {price_currency_short} × {price_rate:.4f} ₽ = {price_rub:,.0f} ₽
+                    {format_number(price)} {price_currency_short} × {price_rate:.4f} ₽ = {format_number(price_rub)} ₽
                 </p>
             </div>
             """,
@@ -585,29 +594,31 @@ def main():
         with st.expander("📋 Детальная разбивка", expanded=True):
             col1, col2 = st.columns(2)
             with col1:
-                st.write("**💰 За границей:**")
-                st.write(f"• Авто: {price:,.0f} {price_currency_short} → {price_rub:,.0f} ₽")
-                st.write(f"• Комиссия дилера: {dealer_commission:,.0f} ₽")
-                st.write(f"• Фрахт: {delivery_to_border:,.0f} ₽")
-                st.write(f"**• Таможенная стоимость: {customs_value:,.0f} ₽**")
+                st.write("**💰 Расходы за границей (до границы РФ):**")
+                st.write(f"• Стоимость авто: {format_number(price)} {price_currency_short} → {format_number(price_rub)} ₽")
+                st.write(f"• Комиссия дилера: {format_number(dealer_commission)} ₽")
+                st.write(f"• Фрахт (доставка до границы): {format_number(delivery_to_border)} ₽")
+                st.write(f"**• Итого (таможенная стоимость): {format_number(customs_value)} ₽**")
                 st.write("")
-                st.write("**🛃 Таможня:**")
-                st.write(f"• Пошлина: {customs_duty:,.0f} ₽")
-                st.write(f"• Утильсбор: {utilization:,.0f} ₽")
-                st.write(f"• Акциз: {excise:,.0f} ₽")
-                st.write(f"• НДС: {vat:,.0f} ₽")
+                st.write("**🛃 Таможенные платежи:**")
+                st.write(f"• Таможенный сбор (оформление): {format_number(customs_fee)} ₽")
+                st.write(f"• Таможенная пошлина: {format_number(customs_duty)} ₽")
+                st.write(f"• Утилизационный сбор: {format_number(utilization)} ₽")
+                st.write(f"• Акциз: {format_number(excise)} ₽")
+                st.write(f"• НДС: {format_number(vat)} ₽")
             with col2:
-                st.write("**🚛 В РФ:**")
-                st.write(f"• Доставка: {delivery_cost:,.0f} ₽")
-                st.write(f"• Брокер: {broker_cost:,.0f} ₽")
-                st.write(f"• ЭПТС: {epts_cost:,.0f} ₽")
+                st.write("**🚛 Расходы в РФ:**")
+                st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
+                st.write(f"• Услуги брокера: {format_number(broker_cost)} ₽")
+                st.write(f"• ЭПТС/СБКТС: {format_number(epts_cost)} ₽")
                 st.write("")
                 st.write("**📌 Расчет утильсбора:**")
                 st.write(f"• Базовая ставка: 20 000 ₽")
                 coeff_display = utilization / 20000
                 st.write(f"• Коэффициент: {coeff_display:.2f}")
-                st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {utilization:,.0f} ₽")
+                st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {format_number(utilization)} ₽")
 
+        # Информация о ставке утильсбора
         if client_type == "Физическое лицо":
             if horsepower_hp <= 160 and engine_cc <= 3000 and not is_electric:
                 st.success(f"✅ Применена **льготная ставка** утильсбора (авто до 160 л.с., {horsepower_hp:.1f} л.с.)")
