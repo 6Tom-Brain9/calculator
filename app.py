@@ -420,6 +420,16 @@ def get_service_cost(service_name, vehicle_type="Легковой", country_expo
         return epts
     return 0
 
+# ==================== КОЛБЭКИ ДЛЯ СИНХРОНИЗАЦИИ МОЩНОСТИ ====================
+
+def update_hp_from_kw():
+    """Обновляет л.с. при изменении кВт"""
+    st.session_state.hp_hp = st.session_state.hp_kw * 1.3596
+
+def update_kw_from_hp():
+    """Обновляет кВт при изменении л.с."""
+    st.session_state.hp_kw = st.session_state.hp_hp / 1.3596
+
 # ==================== ИНТЕРФЕЙС ====================
 
 def main():
@@ -484,36 +494,28 @@ def main():
 
         engine_cc = st.number_input("🔧 Объем двигателя", min_value=0, value=1997, step=100, help="куб.см")
 
-        # ==================== МОЩНОСТЬ: СИНХРОНИЗАЦИЯ кВт и л.с. ====================
+        # ==================== МОЩНОСТЬ: СИНХРОНИЗАЦИЯ ЧЕРЕЗ КОЛБЭКИ ====================
         col_hp1, col_hp2 = st.columns(2)
         
         with col_hp1:
-            hp_kw = st.number_input(
+            st.number_input(
                 "⚡ Мощность (кВт)",
                 min_value=0.0,
-                value=st.session_state.hp_kw,
                 step=1.0,
-                key='hp_kw_input',
+                key='hp_kw',
+                on_change=update_hp_from_kw,
                 help="Мощность двигателя в киловаттах"
             )
-            # Обновляем сессию и пересчитываем л.с.
-            if hp_kw != st.session_state.hp_kw:
-                st.session_state.hp_kw = hp_kw
-                st.session_state.hp_hp = hp_kw * 1.3596
 
         with col_hp2:
-            hp_hp = st.number_input(
+            st.number_input(
                 "⚡ Мощность (л.с.)",
                 min_value=0.0,
-                value=st.session_state.hp_hp,
                 step=1.0,
-                key='hp_hp_input',
+                key='hp_hp',
+                on_change=update_kw_from_hp,
                 help="Мощность двигателя в лошадиных силах"
             )
-            # Обновляем сессию и пересчитываем кВт
-            if hp_hp != st.session_state.hp_hp:
-                st.session_state.hp_hp = hp_hp
-                st.session_state.hp_kw = hp_hp / 1.3596
 
         # Используем значения из session_state для расчетов
         horsepower_kw = st.session_state.hp_kw
