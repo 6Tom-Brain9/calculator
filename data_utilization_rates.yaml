@@ -1,7 +1,7 @@
-# Коэффициенты утилизационного сбора для легковых автомобилей (категория M1)
-# Базовая ставка: 20 000 ₽
-# Источник: Постановление Правительства РФ от 01.11.2025 № 1713
+# Коэффициенты утилизационного сбора
+# Основание: Постановление Правительства РФ от 01.11.2025 № 1713
 # Действует с 1 декабря 2025 года
+# Базовая ставка для легковых (категория M1): 20 000 ₽
 
 base_rate: 20000
 
@@ -9,125 +9,734 @@ base_rate: 20000
 # ДЛЯ ФИЗИЧЕСКИХ ЛИЦ (личное пользование)
 # ============================================================
 individuals:
-  description: "Льготные коэффициенты сохраняются только для авто мощностью ДО 160 л.с."
+  description: "Льготы только для авто до 160 л.с. (117.68 кВт) и объемом до 3000 куб.см"
   base_rate: 20000
-  
-  categories:
-    # Для автомобилей мощностью до 160 л.с. - льготные коэффициенты (старые)
-    - name: "льготная категория (до 160 л.с.)"
-      max_hp: 160
-      is_electric: false
+
+  # Льготные коэффициенты (для авто до 160 л.с. и объема до 3000 куб.см)
+  льготные:
+    new: 0.17
+    old: 0.26
+
+  # Коммерческие коэффициенты для объема 1000-2000 куб.см
+  объем_1000_2000:
+    - power_min_kw: 0
+      power_max_kw: 117.68
+      hp_min: 0
+      hp_max: 160
+      new: 0.17   # льгота
+      old: 0.26   # льгота
+
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 45.0
+      old: 74.64
+
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 47.64
+      old: 79.20
+
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 50.52
+      old: 83.88
+
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 57.12
+      old: 91.92
+
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 64.56
+      old: 100.56
+
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 72.96
+      old: 110.16
+
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 83.16
+      old: 120.60
+
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 94.80
+      old: 132.00
+
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 108.00
+      old: 144.60
+
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 123.24
+      old: 158.40
+
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 140.40
+      old: 173.40
+
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 160.08
+      old: 189.84
+
+  # Коммерческие коэффициенты для объема 2000-3000 куб.см
+  объем_2000_3000:
+    - power_min_kw: 0
+      power_max_kw: 117.68
+      hp_min: 0
+      hp_max: 160
+      new: 0.17   # льгота
+      old: 0.26   # льгота
+
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 115.34
+      old: 172.80
+
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 118.20
+      old: 175.08
+
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 120.12
+      old: 177.60
+
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 126.00
+      old: 183.00
+
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 131.04
+      old: 188.52
+
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 136.32
+      old: 193.68
+
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 141.72
+      old: 199.08
+
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 147.48
+      old: 204.72
+
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 153.36
+      old: 210.48
+
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 159.48
+      old: 216.36
+
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 165.84
+      old: 222.36
+
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 172.44
+      old: 228.60
+
+  # Для объема 3000-3500 куб.см и свыше 3500 - всегда коммерческие
+  объем_3000_3500:
+    new: 89.73
+    old: 137.36
+
+  объем_свыше_3500:
+    new: 114.26
+    old: 150.20
+
+  # Электромобили и последовательные гибриды
+  electric:
+    - power_max_kw: 58.84
+      hp_max: 80
       new: 0.17
       old: 0.26
-    
-    # Для автомобилей мощностью СВЫШЕ 160 л.с. - коммерческие коэффициенты
-    - name: "коммерческая категория (свыше 160 л.с.)"
-      min_hp: 160.01
-      is_electric: false
-      new: 89.73
-      old: 137.36
-    
-    # Электромобили - отдельно (тоже зависят от мощности)
-    - name: "электромобили"
-      is_electric: true
-      # До 80 л.с. (58.84 кВт) - льготные
-      - max_hp: 80
-        new: 0.17
-        old: 0.26
-      # Свыше 80 л.с. - коммерческие
-      - min_hp: 80.01
-        new: 89.73
-        old: 137.36
+
+    - power_min_kw: 58.85
+      power_max_kw: 73.55
+      hp_min: 80
+      hp_max: 100
+      new: 49.56
+      old: 82.08
+
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 65.88
+      old: 95.64
+
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 78.00
+      old: 111.36
+
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 92.40
+      old: 129.72
+
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 109.68
+      old: 151.20
+
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 129.96
+      old: 176.16
+
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 153.96
+      old: 205.20
+
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 182.40
+      old: 239.04
+
+    - power_min_kw: 228.01
+      power_max_kw: null
+      hp_min: 310
+      hp_max: null
+      new: 182.40
+      old: 239.04
 
 # ============================================================
-# ДЛЯ ЮРИДИЧЕСКИХ ЛИЦ (полные коммерческие ставки)
+# ДЛЯ ЮРИДИЧЕСКИХ ЛИЦ (полные ставки из постановления)
 # ============================================================
 legal:
-  description: "Коммерческие ставки для юрлиц и физлиц при ввозе мощных авто > 160 л.с."
   base_rate: 20000
-  
-  # По объему двигателя и мощности
-  categories:
-    # 1. Электромобили и последовательные гибриды
-    - name: "электромобили"
-      is_electric: true
-      min_hp: 0
-      max_hp: null
-      years:
-        2024: {new: 1.63, old: 6.1}
-        2025: {new: 33.37, old: 58.7}
-        2026: {new: 40.04, old: 70.44}
-        2027: {new: 44.04, old: 77.48}
-        2028: {new: 48.45, old: 85.23}
-        2029: {new: 53.29, old: 93.75}
-        2030: {new: 58.62, old: 103.13}
 
-    # 2. До 1000 куб.см
-    - name: "до 1000 куб.см"
-      is_electric: false
-      min_engine: 0
-      max_engine: 1000
-      years:
-        2024: {new: 7.51, old: 19.17}
-        2025: {new: 9.01, old: 23}
-        2026: {new: 10.82, old: 27.6}
-        2027: {new: 11.9, old: 30.36}
-        2028: {new: 13.09, old: 33.39}
-        2029: {new: 14.4, old: 36.73}
-        2030: {new: 15.84, old: 40.41}
+  # Коэффициенты для юрлиц (всегда коммерческие)
+  # Объем 1000-2000 куб.см
+  объем_1000_2000:
+    - power_max_kw: 51.48
+      hp_max: 70
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 51.49
+      power_max_kw: 73.55
+      hp_min: 70
+      hp_max: 100
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 37.5
+      old: 62.2
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 39.7
+      old: 66.0
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 42.1
+      old: 69.9
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 47.6
+      old: 76.6
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 53.8
+      old: 83.8
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 60.8
+      old: 91.8
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 69.3
+      old: 100.5
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 79.0
+      old: 110.0
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 90.0
+      old: 120.5
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 102.7
+      old: 132.0
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 117.0
+      old: 144.5
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 133.4
+      old: 158.2
 
-    # 3. 1000-2000 куб.см
-    - name: "1000-2000 куб.см"
-      is_electric: false
-      min_engine: 1001
-      max_engine: 2000
-      years:
-        2024: {new: 27.81, old: 48.91}
-        2025: {new: 33.37, old: 58.7}
-        2026: {new: 40.04, old: 70.44}
-        2027: {new: 44.04, old: 77.48}
-        2028: {new: 48.45, old: 85.23}
-        2029: {new: 53.29, old: 93.75}
-        2030: {new: 58.62, old: 103.13}
+  # Объем 2000-3000 куб.см
+  объем_2000_3000:
+    - power_max_kw: 51.48
+      hp_max: 70
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 51.49
+      power_max_kw: 73.55
+      hp_min: 70
+      hp_max: 100
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 96.11
+      old: 144.0
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 98.5
+      old: 145.9
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 100.1
+      old: 148.0
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 105.0
+      old: 152.5
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 109.2
+      old: 157.1
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 113.6
+      old: 161.4
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 118.1
+      old: 165.9
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 122.9
+      old: 170.6
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 127.8
+      old: 175.4
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 132.9
+      old: 180.3
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 138.2
+      old: 185.3
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 143.7
+      old: 190.5
 
-    # 4. 2000-3000 куб.см
-    - name: "2000-3000 куб.см"
-      is_electric: false
-      min_engine: 2001
-      max_engine: 3000
-      years:
-        2024: {new: 78.14, old: 118.31}
-        2025: {new: 93.77, old: 141.97}
-        2026: {new: 112.53, old: 170.36}
-        2027: {new: 123.78, old: 187.4}
-        2028: {new: 136.16, old: 206.14}
-        2029: {new: 149.77, old: 226.75}
-        2030: {new: 164.75, old: 249.43}
+  # Объем 3000-3500 куб.см
+  объем_3000_3500:
+    - power_max_kw: 51.48
+      hp_max: 70
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 51.49
+      power_max_kw: 73.55
+      hp_min: 70
+      hp_max: 100
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 139.4
+      old: 182.9
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 141.8
+      old: 185.7
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 144.2
+      old: 188.5
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 147.1
+      old: 192.8
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 150.0
+      old: 197.2
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 155.3
+      old: 208.0
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 160.73
+      old: 219.5
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 166.4
+      old: 231.6
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 172.2
+      old: 244.3
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 178.2
+      old: 257.8
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 184.4
+      old: 272.0
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 190.9
+      old: 286.9
 
-    # 5. 3000-3500 куб.см
-    - name: "3000-3500 куб.см"
-      is_electric: false
-      min_engine: 3001
-      max_engine: 3500
-      years:
-        2024: {new: 89.73, old: 137.36}
-        2025: {new: 107.67, old: 164.84}
-        2026: {new: 129.2, old: 197.8}
-        2027: {new: 142.12, old: 217.58}
-        2028: {new: 156.34, old: 239.34}
-        2029: {new: 171.97, old: 263.27}
-        2030: {new: 189.17, old: 289.6}
+  # Объем свыше 3500 куб.см
+  объем_свыше_3500:
+    - power_max_kw: 51.48
+      hp_max: 70
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 51.49
+      power_max_kw: 73.55
+      hp_min: 70
+      hp_max: 100
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 137.11
+      old: 180.24
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 139.4
+      old: 182.9
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 141.8
+      old: 185.7
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 144.2
+      old: 188.5
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 147.1
+      old: 192.8
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 150.0
+      old: 197.2
+    - power_min_kw: 228.01
+      power_max_kw: 250.07
+      hp_min: 310
+      hp_max: 340
+      new: 155.3
+      old: 208.0
+    - power_min_kw: 250.08
+      power_max_kw: 272.13
+      hp_min: 340
+      hp_max: 370
+      new: 160.73
+      old: 219.5
+    - power_min_kw: 272.14
+      power_max_kw: 294.20
+      hp_min: 370
+      hp_max: 400
+      new: 166.4
+      old: 231.6
+    - power_min_kw: 294.21
+      power_max_kw: 316.26
+      hp_min: 400
+      hp_max: 430
+      new: 172.2
+      old: 244.3
+    - power_min_kw: 316.27
+      power_max_kw: 338.33
+      hp_min: 430
+      hp_max: 460
+      new: 178.2
+      old: 257.8
+    - power_min_kw: 338.34
+      power_max_kw: 367.75
+      hp_min: 460
+      hp_max: 500
+      new: 184.4
+      old: 272.0
+    - power_min_kw: 367.76
+      power_max_kw: null
+      hp_min: 500
+      hp_max: null
+      new: 190.9
+      old: 286.9
 
-    # 6. Свыше 3500 куб.см
-    - name: "свыше 3500 куб.см"
-      is_electric: false
-      min_engine: 3501
-      max_engine: null
-      years:
-        2024: {new: 114.26, old: 150.2}
-        2025: {new: 137.11, old: 180.24}
-        2026: {new: 164.53, old: 216.29}
-        2027: {new: 180.98, old: 237.92}
-        2028: {new: 199.08, old: 261.71}
-        2029: {new: 218.99, old: 287.88}
-        2030: {new: 240.89, old: 316.67}
+  # Электромобили и последовательные гибриды для юрлиц
+  electric:
+    - power_max_kw: 58.84
+      hp_max: 80
+      new: 33.37
+      old: 58.70
+    - power_min_kw: 58.85
+      power_max_kw: 73.55
+      hp_min: 80
+      hp_max: 100
+      new: 41.3
+      old: 68.4
+    - power_min_kw: 73.56
+      power_max_kw: 95.61
+      hp_min: 100
+      hp_max: 130
+      new: 54.9
+      old: 79.7
+    - power_min_kw: 95.62
+      power_max_kw: 117.68
+      hp_min: 130
+      hp_max: 160
+      new: 65.0
+      old: 92.8
+    - power_min_kw: 117.69
+      power_max_kw: 139.75
+      hp_min: 160
+      hp_max: 190
+      new: 77.0
+      old: 108.1
+    - power_min_kw: 139.76
+      power_max_kw: 161.81
+      hp_min: 190
+      hp_max: 220
+      new: 91.4
+      old: 126.0
+    - power_min_kw: 161.82
+      power_max_kw: 183.88
+      hp_min: 220
+      hp_max: 250
+      new: 108.3
+      old: 146.8
+    - power_min_kw: 183.89
+      power_max_kw: 205.94
+      hp_min: 250
+      hp_max: 280
+      new: 128.3
+      old: 171.0
+    - power_min_kw: 205.95
+      power_max_kw: 228.00
+      hp_min: 280
+      hp_max: 310
+      new: 152.0
+      old: 199.2
+    - power_min_kw: 228.01
+      power_max_kw: null
+      hp_min: 310
+      hp_max: null
+      new: 152.0
+      old: 199.2
+
+# Базовая ставка для грузовых и пикапов
+truck_base_rate: 150000
