@@ -275,13 +275,11 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
             return base_rate * 100.0
 
         elif 3000 < engine_cc <= 3500:
-            rates = rates_config.get('individuals', {}).get('engine_3000_3500', {})
-            coeff = rates.get('old' if is_old else 'new', 100.0)
+            coeff = 107.67 if not is_old else 164.84
             return base_rate * coeff
 
         elif engine_cc > 3500:
-            rates = rates_config.get('individuals', {}).get('engine_over_3500', {})
-            coeff = rates.get('old' if is_old else 'new', 100.0)
+            coeff = 137.11 if not is_old else 180.24
             return base_rate * coeff
 
         return base_rate * 100.0
@@ -434,20 +432,12 @@ def update_kw_from_hp():
 # ==================== ФОРМАТИРОВАНИЕ ЧИСЕЛ ====================
 
 def format_number(num):
+    """Форматирует число с пробелами вместо запятых: 1 500 000"""
     return f"{num:,.0f}".replace(',', ' ')
 
 def format_money(num, currency="₽"):
+    """Форматирует деньги с пробелами, ПОЛНАЯ сумма без сокращений"""
     return f"{format_number(num)} {currency}"
-
-# ==================== КОМПОНЕНТЫ ДЛЯ ОТОБРАЖЕНИЯ ====================
-
-def render_collapsible_block(title, total, items, default_open=False):
-    """Рендерит сворачиваемый блок с итогом"""
-    with st.expander(f"**{title}**", expanded=default_open):
-        st.write(f"**ИТОГО: {format_money(total)}**")
-        st.write("---")
-        for label, value in items:
-            st.write(f"• {label}: {format_money(value)}")
 
 # ==================== ИНТЕРФЕЙС ====================
 
@@ -481,9 +471,8 @@ def main():
         st.metric("🇰🇷 KRW", f"{rates['KRW']:.4f} ₽ (за 1 вону)")
         st.caption(f"*Курс воны: {rates['KRW']*1000:.2f} ₽ за 1000 вон")
         st.markdown("---")
-        st.markdown("**📌 Коэффициенты утильсбора:**")
+        st.markdown("**📌 Коэффициенты утильсбора (2026):**")
         st.caption("• До 160 л.с. → 0.17 / 0.26")
-        st.caption("• 160-190 л.с. → 37.5 / 74.64")
         st.caption("• 430-460 л.с. → 159.48 / 216.36")
         st.caption("• Основание: ПП РФ № 1713 от 01.11.2025")
 
@@ -507,7 +496,7 @@ def main():
             price_rate = rates['KRW']
         st.metric("💵 Актуальный курс", f"1 {price_currency.split()[0]} = {price_rate:.4f} ₽")
 
-        price = st.number_input(f"💰 Стоимость авто ({price_currency})", min_value=0.0, value=138000000.0, step=5000000.0)
+        price = st.number_input(f"💰 Стоимость авто ({price_currency})", min_value=0.0, value=138000000.0, step=500000.0)
         price_rub_preview = price * price_rate
         st.caption(f"📌 Примерно: {format_number(price_rub_preview)} ₽ по текущему курсу")
 
@@ -518,10 +507,10 @@ def main():
             st.number_input(
                 "⚡ Мощность (кВт)",
                 min_value=0.0,
+                value=331.0,
                 step=1.0,
                 key='hp_kw',
                 on_change=update_hp_from_kw,
-                value=331.0,
                 help="Мощность двигателя в киловаттах"
             )
         with col_hp2:
@@ -548,7 +537,6 @@ def main():
         age_years = round(age_years, 2)
         is_electric = fuel_type == "Электричка"
 
-        # Конвертация цены
         if country_export == "Китай":
             price_rub = price * rates['CNY']
             price_currency_short = "CNY"
@@ -556,7 +544,7 @@ def main():
             price_rub = price * rates['KRW']
             price_currency_short = "KRW"
 
-        # Комиссия дилера (отдельно!)
+        # ==================== КОМИССИЯ ДИЛЕРА (НЕ ВХОДИТ В ТАМОЖЕННУЮ СТОИМОСТЬ) ====================
         dealer_commission_coeff = CONFIGS.get('coefficients', {}).get('dealer_commission', {})
         if country_export == "Китай":
             dealer_commission = price_rub * dealer_commission_coeff.get('Китай', {}).get('value', 0.15)
@@ -564,35 +552,32 @@ def main():
             dealer_commission_usd = dealer_commission_coeff.get('Корея', {}).get('value', 2500)
             dealer_commission = dealer_commission_usd * rates['USD']
 
-        # Фрахт (отдельно!)
+        # ==================== ТАМОЖЕННАЯ СТОИМОСТЬ (БЕЗ КОМИССИИ ДИЛЕРА) ====================
         delivery_to_border = 1500 * rates['USD']
+        customs_value = price_rub + delivery_to_border
 
-        # Таможенная стоимость (без комиссии дилера и фрахта)
-        customs_value = price_rub
-
-        # Таможенные платежи
+        # ==================== РАСЧЕТ ПЛАТЕЖЕЙ ====================
         customs_fee = calculate_customs_fee(customs_value)
         customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates['EUR'])
         utilization = calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric, vehicle_type, client_type)
         excise = calculate_excise(horsepower_hp, fuel_type)
         vat = calculate_vat(customs_value, customs_duty, excise, client_type, city)
 
-        # Расходы в РФ
         delivery_cost = get_delivery_cost(city, vehicle_type, CONFIGS.get('delivery_costs', {}))
         broker_cost = get_service_cost('broker', vehicle_type, country_export)
         epts_cost = get_service_cost('epts', vehicle_type, country_export)
 
-        # Итоговые суммы по блокам
-        total_customs = customs_fee + customs_duty + utilization + excise + vat
-        total_abroad = price_rub + dealer_commission + delivery_to_border
-        total_russia = delivery_cost + broker_cost + epts_cost
-        total_cost = total_abroad + total_customs + total_russia
+        # ==================== ИТОГИ ====================
+        customs_total = customs_fee + customs_duty + utilization + excise + vat
+        services_total = dealer_commission + broker_cost + epts_cost
+        delivery_total = delivery_to_border + delivery_cost
+        total_cost = price_rub + customs_total + services_total + delivery_total
 
         # ==================== ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ====================
         st.markdown("---")
         st.header("📊 РЕЗУЛЬТАТ РАСЧЕТА")
-
-        # ИТОГОВАЯ СУММА (крупно)
+        
+        # Итоговая стоимость "под ключ"
         st.markdown(
             f"""
             <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
@@ -609,43 +594,51 @@ def main():
             unsafe_allow_html=True
         )
 
-        # Блок 1: Расходы за границей (сворачиваемый)
-        render_collapsible_block(
-            "💰 Расходы за границей (стоимость авто + комиссия + фрахт)",
-            total_abroad,
-            [
-                ("Стоимость авто", price_rub),
-                ("Комиссия дилера", dealer_commission),
-                ("Фрахт (доставка до границы)", delivery_to_border),
-            ],
-            default_open=True
-        )
+        # Сводные итоги (сворачиваемые)
+        st.subheader("📌 Сводные итоги")
+        
+        col_sum1, col_sum2, col_sum3 = st.columns(3)
+        with col_sum1:
+            st.metric("🛃 Итого таможня", format_money(customs_total))
+        with col_sum2:
+            st.metric("🔧 Итого услуги и комиссии", format_money(services_total))
+        with col_sum3:
+            st.metric("🚛 Итого доставка", format_money(delivery_total))
 
-        # Блок 2: Таможенные платежи (сворачиваемый)
-        render_collapsible_block(
-            "🛃 Таможенные платежи (пошлина + утиль + сбор + акциз + НДС)",
-            total_customs,
-            [
-                ("Таможенный сбор (оформление)", customs_fee),
-                ("Таможенная пошлина", customs_duty),
-                ("Утилизационный сбор", utilization),
-                ("Акциз", excise),
-                ("НДС", vat),
-            ],
-            default_open=True
-        )
+        # Детальная разбивка
+        with st.expander("📋 Детальная разбивка", expanded=True):
+            
+            st.markdown("**💰 Расходы за границей:**")
+            st.write(f"• Стоимость авто: {format_number(price)} {price_currency_short} → {format_number(price_rub)} ₽")
+            
+            st.markdown("**🛃 Таможенные платежи (государственные):**")
+            st.write(f"• Таможенный сбор (оформление): {format_number(customs_fee)} ₽")
+            st.write(f"• Таможенная пошлина: {format_number(customs_duty)} ₽")
+            st.write(f"• Утилизационный сбор: {format_number(utilization)} ₽")
+            st.write(f"• Акциз: {format_number(excise)} ₽")
+            st.write(f"• НДС: {format_number(vat)} ₽")
+            st.write(f"**• Итого таможенных платежей: {format_number(customs_total)} ₽**")
+            
+            st.markdown("**🔧 Услуги и комиссии (негосударственные):**")
+            st.write(f"• Комиссия дилера: {format_number(dealer_commission)} ₽")
+            st.write(f"• Услуги брокера: {format_number(broker_cost)} ₽")
+            st.write(f"• ЭПТС/СБКТС: {format_number(epts_cost)} ₽")
+            st.write(f"**• Итого услуг и комиссий: {format_number(services_total)} ₽**")
+            
+            st.markdown("**🚛 Доставка:**")
+            st.write(f"• Фрахт (доставка до границы): {format_number(delivery_to_border)} ₽")
+            st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
+            st.write(f"**• Итого доставка: {format_number(delivery_total)} ₽**")
+            
+            st.markdown("---")
+            st.markdown(f"**🏁 ИТОГО ПОД КЛЮЧ: {format_money(total_cost)}**")
 
-        # Блок 3: Расходы в РФ (сворачиваемый)
-        render_collapsible_block(
-            "🚛 Расходы в РФ (доставка + брокер + ЭПТС)",
-            total_russia,
-            [
-                ("Доставка по РФ", delivery_cost),
-                ("Услуги брокера", broker_cost),
-                ("ЭПТС/СБКТС", epts_cost),
-            ],
-            default_open=True
-        )
+            st.markdown("")
+            st.markdown("**📌 Расчет утильсбора:**")
+            st.write(f"• Базовая ставка: 20 000 ₽")
+            coeff_display = utilization / 20000
+            st.write(f"• Коэффициент: {coeff_display:.2f}")
+            st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {format_number(utilization)} ₽")
 
         # Информация о ставке утильсбора
         if client_type == "Физическое лицо":
@@ -662,7 +655,7 @@ def main():
             f"⚙️ Объем: **{engine_cc} см³**"
         )
 
-        st.caption("⚠️ **Важно:** Данный расчет является ознакомительным. Точная сумма может отличаться.")
+        st.caption("⚠️ **Важно:** Данный расчет является ознакомительным. Точная сумма может отличаться. Для проверки используйте калькулятор на tks.ru")
 
 if __name__ == "__main__":
     main()
