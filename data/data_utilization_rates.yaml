@@ -1,6 +1,5 @@
 # Коэффициенты утилизационного сбора
 # Основание: Постановление Правительства РФ от 01.11.2025 № 1713
-# Действует с 1 декабря 2025 года
 # Базовая ставка для легковых (категория M1): 20 000 ₽
 
 base_rate: 20000
@@ -11,8 +10,9 @@ base_rate: 20000
 individuals:
   base_rate: 20000
 
+  # ===== ОБЪЕМ 1000-2000 куб.см =====
   engine_1000_2000:
-
+    # Льготный диапазон (до 160 л.с.)
     - power_min_kw: 0
       power_max_kw: 117.68
       hp_min: 0
@@ -20,7 +20,7 @@ individuals:
       new: 0.17
       old: 0.26
 
-
+    # Коммерческие диапазоны
     - power_min_kw: 117.69
       power_max_kw: 139.75
       hp_min: 160
@@ -105,9 +105,9 @@ individuals:
       new: 133.4
       old: 189.84
 
-
+  # ===== ОБЪЕМ 2000-3000 куб.см =====
   engine_2000_3000:
-
+    # Льготный диапазон (до 160 л.с.)
     - power_min_kw: 0
       power_max_kw: 117.68
       hp_min: 0
@@ -115,171 +115,172 @@ individuals:
       new: 0.17
       old: 0.26
 
-
+    # Коммерческие диапазоны (актуальные на 2026 год)
     - power_min_kw: 117.69
       power_max_kw: 139.75
       hp_min: 160
       hp_max: 190
-      new: 96.11
-      old: 144.0
+      new: 115.34
+      old: 172.80
 
     - power_min_kw: 139.76
       power_max_kw: 161.81
       hp_min: 190
       hp_max: 220
-      new: 98.5
-      old: 145.9
+      new: 118.20
+      old: 175.08
 
     - power_min_kw: 161.82
       power_max_kw: 183.88
       hp_min: 220
       hp_max: 250
-      new: 100.1
-      old: 148.0
+      new: 120.12
+      old: 177.60
 
     - power_min_kw: 183.89
       power_max_kw: 205.94
       hp_min: 250
       hp_max: 280
-      new: 105.0
-      old: 152.5
+      new: 126.00
+      old: 183.00
 
     - power_min_kw: 205.95
       power_max_kw: 228.00
       hp_min: 280
       hp_max: 310
-      new: 109.2
-      old: 157.1
+      new: 131.04
+      old: 188.52
 
     - power_min_kw: 228.01
       power_max_kw: 250.07
       hp_min: 310
       hp_max: 340
-      new: 113.6
-      old: 161.4
+      new: 136.32
+      old: 193.68
 
     - power_min_kw: 250.08
       power_max_kw: 272.13
       hp_min: 340
       hp_max: 370
-      new: 118.1
-      old: 165.9
+      new: 141.72
+      old: 199.08
 
     - power_min_kw: 272.14
       power_max_kw: 294.20
       hp_min: 370
       hp_max: 400
-      new: 122.9
-      old: 170.6
+      new: 147.48
+      old: 204.72
 
     - power_min_kw: 294.21
       power_max_kw: 316.26
       hp_min: 400
       hp_max: 430
-      new: 127.8
-      old: 175.4
+      new: 153.36
+      old: 210.48
 
     - power_min_kw: 316.27
       power_max_kw: 338.33
       hp_min: 430
       hp_max: 460
-      new: 132.9
-      old: 180.3
+      new: 159.48
+      old: 216.36
 
     - power_min_kw: 338.34
       power_max_kw: 367.75
       hp_min: 460
       hp_max: 500
-      new: 138.2
-      old: 185.3
+      new: 165.84
+      old: 222.36
 
     - power_min_kw: 367.76
       power_max_kw: null
       hp_min: 500
       hp_max: null
-      new: 143.7
-      old: 190.5
+      new: 172.44
+      old: 228.60
 
-
+  # ===== ОБЪЕМ 3000-3500 куб.см =====
   engine_3000_3500:
-    new: 89.73
-    old: 137.36
+    new: 107.67
+    old: 164.84
 
-
+  # ===== ОБЪЕМ СВЫШЕ 3500 куб.см =====
   engine_over_3500:
-    new: 114.26
-    old: 150.20
+    new: 137.11
+    old: 180.24
 
   # ===== ЭЛЕКТРОМОБИЛИ И ПОСЛЕДОВАТЕЛЬНЫЕ ГИБРИДЫ =====
   electric:
-
+    # Льготный диапазон (до 80 л.с. / 58.84 кВт)
     - power_max_kw: 58.84
       hp_max: 80
       new: 0.17
       old: 0.26
 
+    # Коммерческие диапазоны
     - power_min_kw: 58.85
       power_max_kw: 73.55
       hp_min: 80
       hp_max: 100
-      new: 41.3
-      old: 68.4
+      new: 49.56
+      old: 82.08
 
     - power_min_kw: 73.56
       power_max_kw: 95.61
       hp_min: 100
       hp_max: 130
-      new: 54.9
-      old: 79.7
+      new: 65.88
+      old: 95.64
 
     - power_min_kw: 95.62
       power_max_kw: 117.68
       hp_min: 130
       hp_max: 160
-      new: 65.0
-      old: 92.8
+      new: 78.00
+      old: 111.36
 
     - power_min_kw: 117.69
       power_max_kw: 139.75
       hp_min: 160
       hp_max: 190
-      new: 77.0
-      old: 108.1
+      new: 92.40
+      old: 129.72
 
     - power_min_kw: 139.76
       power_max_kw: 161.81
       hp_min: 190
       hp_max: 220
-      new: 91.4
-      old: 126.0
+      new: 109.68
+      old: 151.20
 
     - power_min_kw: 161.82
       power_max_kw: 183.88
       hp_min: 220
       hp_max: 250
-      new: 108.3
-      old: 146.8
+      new: 129.96
+      old: 176.16
 
     - power_min_kw: 183.89
       power_max_kw: 205.94
       hp_min: 250
       hp_max: 280
-      new: 128.3
-      old: 171.0
+      new: 153.96
+      old: 205.20
 
     - power_min_kw: 205.95
       power_max_kw: 228.00
       hp_min: 280
       hp_max: 310
-      new: 152.0
-      old: 199.2
+      new: 182.40
+      old: 239.04
 
     - power_min_kw: 228.01
       power_max_kw: null
       hp_min: 310
       hp_max: null
-      new: 152.0
-      old: 199.2
+      new: 182.40
+      old: 239.04
 
 
 # ============================================================
@@ -288,6 +289,7 @@ individuals:
 legal:
   base_rate: 20000
 
+  # ===== ОБЪЕМ 1000-2000 куб.см =====
   engine_1000_2000:
     - power_max_kw: 51.48
       hp_max: 70
@@ -384,6 +386,7 @@ legal:
       new: 160.08
       old: 189.84
 
+  # ===== ОБЪЕМ 2000-3000 куб.см =====
   engine_2000_3000:
     - power_max_kw: 51.48
       hp_max: 70
@@ -480,6 +483,7 @@ legal:
       new: 143.7
       old: 190.5
 
+  # ===== ОБЪЕМ 3000-3500 куб.см =====
   engine_3000_3500:
     - power_max_kw: 51.48
       hp_max: 70
@@ -576,6 +580,7 @@ legal:
       new: 190.9
       old: 286.9
 
+  # ===== ОБЪЕМ СВЫШЕ 3500 куб.см =====
   engine_over_3500:
     - power_max_kw: 51.48
       hp_max: 70
@@ -672,6 +677,7 @@ legal:
       new: 190.9
       old: 286.9
 
+  # ===== ЭЛЕКТРОМОБИЛИ ДЛЯ ЮРЛИЦ =====
   electric:
     - power_max_kw: 58.84
       hp_max: 80
@@ -732,7 +738,51 @@ legal:
       new: 152.0
       old: 199.2
 
+
 # ============================================================
 # ДЛЯ ГРУЗОВЫХ АВТОМОБИЛЕЙ И ПИКАПОВ
 # ============================================================
 truck_base_rate: 150000
+
+# ===== ГРУЗОВЫЕ И ПИКАПЫ (2026 год) =====
+truck:
+  base_rate: 150000
+  categories:
+    - name: "массой до 2,5 т"
+      max_weight: 2500
+      years:
+        2026: {new: 6.13, old: 8.91}
+        2027: {new: 6.74, old: 9.8}
+        2028: {new: 7.42, old: 10.78}
+        2029: {new: 8.16, old: 11.85}
+        2030: {new: 8.97, old: 13.04}
+
+    - name: "массой 2,5-3,5 т"
+      min_weight: 2501
+      max_weight: 3500
+      years:
+        2026: {new: 6.6, old: 9.61}
+        2027: {new: 7.26, old: 10.57}
+        2028: {new: 7.99, old: 11.62}
+        2029: {new: 8.79, old: 12.79}
+        2030: {new: 9.67, old: 14.06}
+
+    - name: "массой 3,5-5 т"
+      min_weight: 3501
+      max_weight: 5000
+      years:
+        2026: {new: 6.91, old: 10.29}
+        2027: {new: 7.6, old: 11.31}
+        2028: {new: 8.36, old: 12.44}
+        2029: {new: 9.2, old: 13.69}
+        2030: {new: 10.12, old: 15.06}
+
+    - name: "массой 5-8 т"
+      min_weight: 5001
+      max_weight: 8000
+      years:
+        2026: {new: 7.2, old: 16.46}
+        2027: {new: 7.92, old: 18.1}
+        2028: {new: 8.71, old: 19.91}
+        2029: {new: 9.58, old: 21.9}
+        2030: {new: 10.54, old: 24.09}
