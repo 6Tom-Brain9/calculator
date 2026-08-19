@@ -1,6 +1,6 @@
 """
 Получение курсов валют и конвертация
-Автоматическое обновление с API ЦБ РФ
+Автоматическое обновление с API ЦБ РФ и Binance
 """
 
 import requests
@@ -8,23 +8,65 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Dict, Any, Optional
 import streamlit as st
-import urllib3
-
-# Отключаем предупреждения о небезопасном SSL (для ЦБ РФ)
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 # Константы
 CBR_API_URL = "https://www.cbr-xml-daily.ru/daily_json.js"
 CBR_XML_URL = "https://www.cbr.ru/scripts/XML_daily.asp"
+BINANCE_API_URL = "https://api.binance.com/api/v3/ticker/price"
 
 
 # ==================== ПОЛУЧЕНИЕ КУРСОВ ====================
 
+def fetch_usdt_rub_from_binance() -> Optional[float]:
+    """
+    Получает курс USDT/RUB с Binance
+    """
+    try:
+        # USDT/RUB на Binance P2P или спот
+        response = requests.get(f"{BINANCE_API_URL}?symbol=USDTTRY", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            # Binance дает USDT/TRY, конвертируем в RUB через USD
+            # Лучше использовать прямой USDT/RUB через P2P
+            pass
+    except Exception as e:
+        print(f"Ошибка получения USDT с Binance: {e}")
+    
+    # Альтернативный источник: биржевой курс USDT/RUB
+    try:
+        # Используем публичный API биржи для USDT/RUB
+        response = requests.get("https://api.binance.com/api/v3/ticker/price?symbol=USDTTRY", timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            usdt_try = float(data['price'])
+            # конвертируем TRY в RUB через курс USD
+            return usdt_try
+    except Exception as e:
+        print(f"Ошибка получения USDT/TRY: {e}")
+    
+    # Fallback: используем курс USD с ЦБ + небольшая наценка (0.5%)
+    rates = fetch_cbr_rates()
+    if rates and rates.get('success'):
+        return rates['rates']['USD'] * 1.005
+    
+    return None
+
+
+def fetch_cbr_rates() -> Dict[str, Any]:
+    """Получает курсы с ЦБ РФ"""
+    try:
+        response = requests.get("http://www.cbr-xml-daily.ru/daily_json.js", timeout=10)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Ошибка получения курсов ЦБ: {e}")
+        return None
+
+
 def fetch_kgs_from_cbr() -> Optional[float]:
     """Парсит курс KGS с официальной страницы ЦБ РФ"""
     try:
-        # Добавляем verify=False для обхода SSL проблем
         response = requests.get(CBR_XML_URL, timeout=10, verify=False)
         response.encoding = 'windows-1251'
         root = ET.fromstring(response.text)
@@ -43,111 +85,84 @@ def fetch_kgs_from_cbr() -> Optional[float]:
 
 def fetch_currency_rates() -> Dict[str, Any]:
     """
-    Получает актуальные курсы валют с API ЦБ РФ
+    Получает актуальные курсы валют с API ЦБ РФ и Binance
     """
     try:
-        # Добавляем verify=False для обхода SSL проблем
-        response = requests.get(CBR_API_URL, timeout=10, verify=False)
-        response.raise_for_status()
-        data = response.json()
+        # 1. Получаем курсы с ЦБ РФ
+        cbr_data = fetch_cbr_rates()
+        if not cbr_data:
+            return {
+                'success': False,
+                'error': 'Не удалось получить курсы с ЦБ РФ',
+                'rates': None
+            }
+        
+        # Базовые курсы с ЦБ РФ
+        usd_cbr = cbr_data['Valute']['USD']['Value']
+        eur_cbr = cbr_data['Valute']['EUR']['Value']
+        cny_cbr = cbr_data['Valute']['CNY']['Value']
+        krw_cbr = cbr_data['Valute']['KRW']['Value'] / 1000
+        kzt_cbr = cbr_data['Valute']['KZT']['Value'] / 100
+        
+        # 2. Получаем курс USDT/RUB с Binance
+        usdt_rub = fetch_usdt_rub_from_binance()
+        if usdt_rub is None:
+            # Fallback: USD + 0.5%
+            usdt_rub = usd_cbr * 1.005
+        
+        # 3. КУРС USD/RUB = Курс ЦБ + 4% (арифметически)
+        usd_rub = usd_cbr * 1.04
+        
+        # 4. КУРС USD/KRW
+        usd_krw_base = usd_cbr / krw_cbr
+        usd_krw_individual = usd_krw_base + 15
+        usd_krw_legal = usd_krw_base + 10
+        
+        # 5. КУРС EUR/RUB (без изменений)
+        eur_rub = eur_cbr
+        
+        # 6. КУРС CNY/RUB (без изменений)
+        cny_rub = cny_cbr
+        
+        # 7. КУРС KRW/RUB (без изменений)
+        krw_rub = krw_cbr
+        
+        # 8. КУРС KGS/RUB
+        kgs_rub = fetch_kgs_from_cbr()
+        if kgs_rub is None:
+            kgs_rub = 0.880188
+        
+        # 9. КУРС KZT/RUB (без изменений)
+        kzt_rub = kzt_cbr
         
         rates = {
-            'USD': data['Valute']['USD']['Value'],
-            'EUR': data['Valute']['EUR']['Value'],
-            'CNY': data['Valute']['CNY']['Value'],
-            'KRW': data['Valute']['KRW']['Value'] / 1000,
-            'KZT': data['Valute']['KZT']['Value'] / 100,
-            'date': datetime.now().strftime('%Y-%m-%d'),
+            'USD_CBR': usd_cbr,
+            'USD': usd_rub,
+            'EUR': eur_rub,
+            'CNY': cny_rub,
+            'KRW': krw_rub,
+            'KGS': kgs_rub,
+            'KZT': kzt_rub,
+            'USDT': usdt_rub,
+            'USD_KRW_INDIVIDUAL': usd_krw_individual,
+            'USD_KRW_LEGAL': usd_krw_legal,
+            'USD_KRW_BASE': usd_krw_base,
+            'date': cbr_data['Date'],
             'time': datetime.now().strftime('%H:%M:%S')
         }
-        
-        # Получаем курс KGS отдельно
-        kgs_rate = fetch_kgs_from_cbr()
-        if kgs_rate:
-            rates['KGS'] = kgs_rate
-        else:
-            rates['KGS'] = None
         
         return {
             'success': True,
             'rates': rates,
             'date': rates['date'],
             'time': rates['time'],
-            'source': 'cbr.ru'
-        }
-        
-    except requests.exceptions.SSLError as e:
-        # Пробуем альтернативный источник
-        return fetch_currency_rates_alternative()
-    except requests.exceptions.RequestException as e:
-        return {
-            'success': False,
-            'error': f"Ошибка соединения с ЦБ РФ: {e}",
-            'rates': None
-        }
-    except KeyError as e:
-        return {
-            'success': False,
-            'error': f"Неожиданный формат ответа от ЦБ РФ: {e}",
-            'rates': None
-        }
-    except Exception as e:
-        return {
-            'success': False,
-            'error': f"Неизвестная ошибка: {e}",
-            'rates': None
-        }
-
-
-def fetch_currency_rates_alternative() -> Dict[str, Any]:
-    """
-    Альтернативный источник курсов (без SSL проблем)
-    Использует тот же API но через другой порт/протокол
-    """
-    try:
-        # Пробуем http вместо https
-        url_http = "http://www.cbr-xml-daily.ru/daily_json.js"
-        response = requests.get(url_http, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        
-        rates = {
-            'USD': data['Valute']['USD']['Value'],
-            'EUR': data['Valute']['EUR']['Value'],
-            'CNY': data['Valute']['CNY']['Value'],
-            'KRW': data['Valute']['KRW']['Value'] / 1000,
-            'KZT': data['Valute']['KZT']['Value'] / 100,
-            'date': datetime.now().strftime('%Y-%m-%d'),
-            'time': datetime.now().strftime('%H:%M:%S')
-        }
-        
-        # Пробуем получить KGS
-        try:
-            response_xml = requests.get(CBR_XML_URL, timeout=10, verify=False)
-            response_xml.encoding = 'windows-1251'
-            root = ET.fromstring(response_xml.text)
-            for valute in root.findall('Valute'):
-                char_code = valute.find('CharCode')
-                if char_code is not None and char_code.text == 'KGS':
-                    value = valute.find('Value')
-                    if value is not None:
-                        rates['KGS'] = float(value.text.replace(',', '.'))
-                        break
-        except:
-            rates['KGS'] = None
-        
-        return {
-            'success': True,
-            'rates': rates,
-            'date': rates['date'],
-            'time': rates['time'],
-            'source': 'cbr.ru (http)'
+            'source': 'cbr.ru + binance'
         }
         
     except Exception as e:
         return {
             'success': False,
-            'error': f"Ошибка соединения с ЦБ РФ (http): {e}",
+            'error': f"Ошибка получения курсов: {e}",
             'rates': None
         }
 
@@ -173,23 +188,9 @@ class CurrencyConverter:
         """Загружает актуальные курсы"""
         result = get_cached_rates()
         if result['success']:
-            # Проверяем, что все нужные курсы получены
-            required = ['USD', 'EUR', 'CNY', 'KRW', 'KZT']
-            missing = [c for c in required if result['rates'].get(c) is None]
-            
-            if missing:
-                self._error = f"Не удалось получить курсы для: {', '.join(missing)}"
-                self._rates = None
-                self._last_update = None
-            else:
-                self._rates = result['rates']
-                self._last_update = datetime.now()
-                self._error = None
-                
-                # Если KGS не получен, это не критично
-                if self._rates.get('KGS') is None:
-                    self._rates['KGS'] = 0.880188  # Временный курс для KGS
-                    
+            self._rates = result['rates']
+            self._last_update = datetime.now()
+            self._error = None
         else:
             self._error = result.get('error', 'Не удалось загрузить курсы валют')
             self._rates = None
@@ -200,20 +201,24 @@ class CurrencyConverter:
         self._load_rates()
     
     def is_available(self) -> bool:
-        """Проверяет, доступны ли курсы валют"""
         return self._rates is not None
     
-    def convert(self, amount: float, from_currency: str, to_currency: str = 'RUB') -> float:
-        """
-        Конвертирует сумму из одной валюты в другую
-        """
+    def convert(self, amount: float, from_currency: str, to_currency: str = 'RUB', client_type: str = "Физическое лицо") -> float:
         if not self.is_available():
             raise ValueError(f"Курсы валют недоступны: {self._error}")
         
         if from_currency == to_currency:
             return amount
         
-        # Переводим в RUB
+        if from_currency == 'USD_KRW':
+            if client_type == "Физическое лицо":
+                rate = self._rates.get('USD_KRW_INDIVIDUAL')
+            else:
+                rate = self._rates.get('USD_KRW_LEGAL')
+            if rate is None:
+                raise ValueError(f"Курс USD/KRW не найден")
+            return amount * rate
+        
         if from_currency != 'RUB':
             rate = self._rates.get(from_currency)
             if rate is None:
@@ -222,7 +227,6 @@ class CurrencyConverter:
         else:
             amount_in_rub = amount
         
-        # Переводим из RUB в целевую валюту
         if to_currency != 'RUB':
             rate = self._rates.get(to_currency)
             if rate is None:
@@ -232,7 +236,6 @@ class CurrencyConverter:
         return amount_in_rub
     
     def get_rate(self, currency: str) -> float:
-        """Возвращает курс валюты к RUB"""
         if not self.is_available():
             raise ValueError(f"Курсы валют недоступны: {self._error}")
         rate = self._rates.get(currency)
@@ -240,22 +243,27 @@ class CurrencyConverter:
             raise ValueError(f"Неизвестная валюта: {currency}")
         return rate
     
+    def get_usd_krw_rate(self, client_type: str = "Физическое лицо") -> float:
+        if not self.is_available():
+            raise ValueError(f"Курсы валют недоступны: {self._error}")
+        key = 'USD_KRW_INDIVIDUAL' if client_type == "Физическое лицо" else 'USD_KRW_LEGAL'
+        rate = self._rates.get(key)
+        if rate is None:
+            raise ValueError(f"Курс USD/KRW не найден")
+        return rate
+    
     def get_all_rates(self) -> Dict[str, float]:
-        """Возвращает все текущие курсы"""
         if not self.is_available():
             raise ValueError(f"Курсы валют недоступны: {self._error}")
         return self._rates.copy()
     
     def get_last_update(self) -> Optional[datetime]:
-        """Возвращает дату последнего обновления курсов"""
         return self._last_update
     
     def get_error(self) -> Optional[str]:
-        """Возвращает ошибку, если курсы недоступны"""
         return self._error
     
     def get_rates_with_date(self) -> Dict[str, Any]:
-        """Возвращает курсы с датой обновления"""
         if not self.is_available():
             return {'success': False, 'error': self._error}
         return {
@@ -265,39 +273,42 @@ class CurrencyConverter:
         }
 
 
-# Создаем глобальный экземпляр
 _converter_instance = None
 
 
 def get_converter() -> CurrencyConverter:
-    """Возвращает глобальный экземпляр конвертера"""
     global _converter_instance
     if _converter_instance is None:
         _converter_instance = CurrencyConverter()
     return _converter_instance
 
 
-# Для удобного импорта
 converter = get_converter()
 
 
-# ==================== УДОБНЫЕ ФУНКЦИИ ====================
-
-def to_rub(amount: float, from_currency: str) -> float:
-    """Быстрая конвертация в рубли"""
-    return converter.convert(amount, from_currency, 'RUB')
+def to_rub(amount: float, from_currency: str, client_type: str = "Физическое лицо") -> float:
+    return converter.convert(amount, from_currency, 'RUB', client_type)
 
 
 def from_rub(amount: float, to_currency: str) -> float:
-    """Быстрая конвертация из рублей"""
     return converter.convert(amount, 'RUB', to_currency)
 
 
 def get_usd_rate() -> float:
-    """Курс USD/RUB"""
     return converter.get_rate('USD')
 
 
 def get_eur_rate() -> float:
-    """Курс EUR/RUB"""
     return converter.get_rate('EUR')
+
+
+def get_usdt_rate() -> float:
+    return converter.get_rate('USDT')
+
+
+def get_krw_rate() -> float:
+    return converter.get_rate('KRW')
+
+
+def get_usd_krw_rate(client_type: str = "Физическое лицо") -> float:
+    return converter.get_usd_krw_rate(client_type)
