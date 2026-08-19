@@ -53,7 +53,7 @@ if 'configs' not in st.session_state:
 CONFIGS = st.session_state.configs
 
 # ==================== ИМПОРТ КОНВЕРТЕРА ====================
-from utils_currency_api import converter, get_cached_rates
+from utils_currency_api import converter
 
 # ==================== КУРСЫ ВАЛЮТ (обертка) ====================
 
@@ -66,18 +66,16 @@ def get_exchange_rates(force_refresh=False):
         rates = converter.get_all_rates()
         return {
             'success': True,
-            # Основные курсы для расчетов
-            'USD': rates.get('USD'),          # USD/RUB (+4% к ЦБ)
-            'EUR': rates.get('EUR'),          # EUR/RUB
-            'CNY': rates.get('CNY'),          # CNY/RUB
-            'KRW': rates.get('KRW'),          # KRW/RUB
-            'USDT': rates.get('USDT'),        # USDT/RUB (с Binance)
-            'KGS': rates.get('KGS'),          # KGS/RUB
-            'KZT': rates.get('KZT'),          # KZT/RUB
-            'USD_CBR': rates.get('USD_CBR'),  # USD/RUB (курс ЦБ без наценки)
-            # Специальные курсы
-            'USD_KRW_INDIVIDUAL': rates.get('USD_KRW_INDIVIDUAL'),  # для физлиц
-            'USD_KRW_LEGAL': rates.get('USD_KRW_LEGAL'),            # для юрлиц
+            'USD': rates.get('USD'),
+            'EUR': rates.get('EUR'),
+            'CNY': rates.get('CNY'),
+            'KRW': rates.get('KRW'),
+            'USDT': rates.get('USDT'),
+            'KGS': rates.get('KGS'),
+            'KZT': rates.get('KZT'),
+            'USD_CBR': rates.get('USD_CBR'),
+            'USD_KRW_INDIVIDUAL': rates.get('USD_KRW_INDIVIDUAL'),
+            'USD_KRW_LEGAL': rates.get('USD_KRW_LEGAL'),
             'date': rates.get('date'),
             'time': rates.get('time')
         }
@@ -489,7 +487,6 @@ def main():
         fuel_type = st.selectbox("⛽ Тип топлива", ["Бензин", "Дизель", "Гибрид", "Электричка"])
 
     with col2:
-        # Определяем валюту и курс в зависимости от страны
         if country_export == "Китай":
             price_currency = "CNY (юань)"
             price_rate = rates.get('CNY', 0)
@@ -506,7 +503,6 @@ def main():
             step=1000000.0 if country_export == "Корея" else 5000.0
         )
         
-        # Показываем предварительную стоимость в рублях по актуальному курсу
         price_rub_preview = price * price_rate
         st.caption(f"📌 Примерно: {format_number(price_rub_preview)} ₽ по текущему курсу")
 
@@ -538,7 +534,6 @@ def main():
         weight = st.number_input("🏋️ Масса", min_value=0, value=1800, step=100, help="кг")
         manufacture_date = st.date_input("📅 Дата выпуска", value=datetime(2022, 1, 1))
 
-    # ==================== КНОПКА РАСЧЕТА ====================
     st.markdown("---")
     calculate = st.button("🧮 РАССЧИТАТЬ", type="primary", use_container_width=True)
 
@@ -548,7 +543,7 @@ def main():
         is_electric = fuel_type == "Электричка"
 
         # ============================================================
-        # 1. КОНВЕРТАЦИЯ СТОИМОСТИ АВТО (используем актуальные курсы)
+        # 1. КОНВЕРТАЦИЯ СТОИМОСТИ
         # ============================================================
         if country_export == "Китай":
             price_rub = price * rates.get('CNY', 0)
@@ -558,7 +553,7 @@ def main():
             price_currency_short = "KRW"
 
         # ============================================================
-        # 2. КОМИССИЯ ДИЛЕРА (используем USD/RUB с наценкой 4%)
+        # 2. КОМИССИЯ ДИЛЕРА
         # ============================================================
         dealer_commission_coeff = CONFIGS.get('coefficients', {}).get('dealer_commission', {})
         if country_export == "Китай":
@@ -568,15 +563,15 @@ def main():
         else:
             dealer_commission_original = dealer_commission_coeff.get('Корея', {}).get('value', 2500)
             dealer_commission_currency = "USD"
-            dealer_commission = dealer_commission_original * rates.get('USD', 0)  # ← используем USD с наценкой 4%
+            dealer_commission = dealer_commission_original * rates.get('USD', 0)
 
         # ============================================================
-        # 3. ФРАХТ (доставка до границы) — используем USD/RUB с наценкой 4%
+        # 3. ФРАХТ
         # ============================================================
-        delivery_to_border = 1500 * rates.get('USD', 0)  # ← используем USD с наценкой 4%
+        delivery_to_border = 1500 * rates.get('USD', 0)
 
         # ============================================================
-        # 4. ТАМОЖЕННАЯ СТОИМОСТЬ (без комиссии дилера, только авто + фрахт)
+        # 4. ТАМОЖЕННАЯ СТОИМОСТЬ (без комиссии дилера)
         # ============================================================
         customs_value = price_rub + delivery_to_border
 
@@ -607,7 +602,7 @@ def main():
         st.markdown("---")
         st.header("📊 РЕЗУЛЬТАТ РАСЧЕТА")
 
-        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ -----
+        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ (основной, не разворачивается) -----
         st.markdown(
             f"""
             <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
@@ -624,14 +619,14 @@ def main():
             unsafe_allow_html=True
         )
 
-        # ----- БЛОК 2: ИТОГО ЗА ГРАНИЦЕЙ -----
+        # ----- БЛОК 2: ИТОГО ЗА ГРАНИЦЕЙ (разворачивается) -----
         with st.expander(f"💰 ИТОГО ЗА ГРАНИЦЕЙ: {format_money(price_rub + delivery_to_border)}", expanded=True):
             st.write("**Расходы за границей до границы РФ:**")
             st.write(f"• Стоимость авто: {format_number(price)} {price_currency_short} → {format_number(price_rub)} ₽")
             st.write(f"• Фрахт (доставка до границы): 1 500 USD × {rates.get('USD', 0):.2f} ₽ = {format_number(delivery_to_border)} ₽")
             st.write(f"**• Итого: {format_number(price_rub + delivery_to_border)} ₽**")
 
-        # ----- БЛОК 3: ИТОГО НА ТАМОЖНЕ -----
+        # ----- БЛОК 3: ИТОГО НА ТАМОЖНЕ (разворачивается) -----
         with st.expander(f"🛃 ИТОГО НА ТАМОЖНЕ: {format_money(total_customs)}", expanded=True):
             st.write("**Таможенные платежи:**")
             st.write(f"• Таможенный сбор (оформление): {format_number(customs_fee)} ₽")
@@ -646,7 +641,7 @@ def main():
             st.write(f"• Коэффициент: {coeff_display:.2f}")
             st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {format_number(utilization)} ₽")
 
-        # ----- БЛОК 4: ДОСТАВКА + КОМИССИИ + БРОКЕР -----
+        # ----- БЛОК 4: ДОСТАВКА + КОМИССИИ + БРОКЕР (разворачивается) -----
         with st.expander(f"🚛 ДОСТАВКА + КОМИССИИ + БРОКЕР: {format_money(total_services)}", expanded=True):
             st.write("**🔧 Комиссии и услуги:**")
             st.write(f"• Комиссия дилера: {format_number(dealer_commission_original)} {dealer_commission_currency} → {format_number(dealer_commission)} ₽")
@@ -656,8 +651,8 @@ def main():
             st.write("**🚛 Доставка:**")
             st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
 
-        # ----- БЛОК 5: ИТОГО ПОД КЛЮЧ (структура) -----
-        with st.expander(f"🏁 ИТОГО ПОД КЛЮЧ: {format_money(total_cost)}", expanded=False):
+        # ----- БЛОК 5: ИТОГО ПОД КЛЮЧ (структура, разворачивается) -----
+        with st.expander(f"🏁 ИТОГО ПОД КЛЮЧ (структура): {format_money(total_cost)}", expanded=False):
             st.write("**Структура итоговой стоимости:**")
             st.write(f"• Стоимость авто за границей: {format_number(price_rub)} ₽")
             st.write(f"• Таможенные платежи: {format_number(total_customs)} ₽")
