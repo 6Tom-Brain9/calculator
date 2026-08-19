@@ -9,12 +9,12 @@ import yaml
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 st.set_page_config(
-    page_title="Калькулятор растаможки автомобилей",
+    page_title="🚗 Калькулятор растаможки автомобилей",
     page_icon="🚗",
     layout="wide"
 )
 
-# ==================== ИНИЦИАЛИЗАЦИЯ SESSION_STATE ====================
+# ==================== ИНИЦИАЛИЗАЦИЯ ====================
 if 'hp_kw' not in st.session_state:
     st.session_state.hp_kw = 0.0
 if 'hp_hp' not in st.session_state:
@@ -29,7 +29,6 @@ def load_yaml_config(file_path):
                 data = yaml.safe_load(f) or {}
                 return data
         else:
-            st.warning(f"Файл не найден: {file_path}")
             return {}
     except Exception as e:
         st.warning(f"Ошибка загрузки {file_path}: {e}")
@@ -53,50 +52,44 @@ if 'configs' not in st.session_state:
 
 CONFIGS = st.session_state.configs
 
-# ==================== КУРСЫ ВАЛЮТ ====================
+# ==================== ИМПОРТ КОНВЕРТЕРА ====================
+from utils_currency_api import converter, get_cached_rates
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_currency_rates():
-    try:
-        response = requests.get("http://www.cbr-xml-daily.ru/daily_json.js", timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            return {
-                'USD': data['Valute']['USD']['Value'],
-                'EUR': data['Valute']['EUR']['Value'],
-                'CNY': data['Valute']['CNY']['Value'],
-                'KRW': data['Valute']['KRW']['Value'] / 1000,
-                'date': data['Date'],
-                'success': True
-            }
-    except Exception as e:
-        print(f"Ошибка получения курсов: {e}")
-    return {'success': False}
+# ==================== КУРСЫ ВАЛЮТ (обертка) ====================
 
 def get_exchange_rates(force_refresh=False):
     if force_refresh:
         st.cache_data.clear()
-    rates = fetch_currency_rates()
-    if rates['success']:
-        return rates
-    currencies = CONFIGS.get('currencies', {})
-    rates_data = currencies.get('currencies', {})
-    return {
-        'success': False,
-        'USD': rates_data.get('USD', {}).get('rate', 90.0),
-        'EUR': rates_data.get('EUR', {}).get('rate', 98.0),
-        'CNY': rates_data.get('CNY', {}).get('rate', 12.5),
-        'KRW': rates_data.get('KRW', {}).get('rate', 0.065),
-        'date': datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-    }
+        converter.refresh()
+    
+    if converter.is_available():
+        rates = converter.get_all_rates()
+        return {
+            'success': True,
+            # Основные курсы для расчетов
+            'USD': rates.get('USD'),          # USD/RUB (+4% к ЦБ)
+            'EUR': rates.get('EUR'),          # EUR/RUB
+            'CNY': rates.get('CNY'),          # CNY/RUB
+            'KRW': rates.get('KRW'),          # KRW/RUB
+            'USDT': rates.get('USDT'),        # USDT/RUB (с Binance)
+            'KGS': rates.get('KGS'),          # KGS/RUB
+            'KZT': rates.get('KZT'),          # KZT/RUB
+            'USD_CBR': rates.get('USD_CBR'),  # USD/RUB (курс ЦБ без наценки)
+            # Специальные курсы
+            'USD_KRW_INDIVIDUAL': rates.get('USD_KRW_INDIVIDUAL'),  # для физлиц
+            'USD_KRW_LEGAL': rates.get('USD_KRW_LEGAL'),            # для юрлиц
+            'date': rates.get('date'),
+            'time': rates.get('time')
+        }
+    else:
+        return {
+            'success': False,
+            'error': converter.get_error() or 'Не удалось получить курсы валют'
+        }
 
-# ==================== ТАМОЖЕННЫЙ СБОР ====================
+# ==================== ФУНКЦИИ РАСЧЕТА ====================
 
 def calculate_customs_fee(customs_value_rub):
-    """
-    Расчет таможенного сбора за оформление
-    Постановление Правительства РФ от 28.12.2004 № 863
-    """
     if customs_value_rub <= 200000:
         return 1231
     elif customs_value_rub <= 450000:
@@ -114,7 +107,6 @@ def calculate_customs_fee(customs_value_rub):
     else:
         return 73860
 
-# ==================== ТАМОЖЕННАЯ ПОШЛИНА ====================
 
 def get_customs_rate_by_value(customs_value_eur, rates_config):
     brackets = rates_config.get('individuals', {}).get('by_value', {}).get('brackets', [])
@@ -123,6 +115,7 @@ def get_customs_rate_by_value(customs_value_eur, rates_config):
         if max_euro is None or customs_value_eur <= max_euro:
             return bracket
     return brackets[-1] if brackets else {'percent': 48, 'min_per_cm3': 20}
+
 
 def get_customs_rate_by_volume(engine_cc, age_years, rates_config):
     categories = rates_config.get('individuals', {}).get('by_volume', {}).get('categories', [])
@@ -147,6 +140,7 @@ def get_customs_rate_by_volume(engine_cc, age_years, rates_config):
             return rate
     return 3.6 if (3 <= age_years <= 5) else 5.7
 
+
 def calculate_customs_duty_individual(customs_value_rub, engine_cc, age_years, eur_rate):
     customs_value_eur = customs_value_rub / eur_rate
     rates_config = CONFIGS.get('customs_rates', {})
@@ -161,7 +155,6 @@ def calculate_customs_duty_individual(customs_value_rub, engine_cc, age_years, e
         duty_eur = engine_cc * rate
         return duty_eur * eur_rate
 
-# ==================== УТИЛЬСБОР ====================
 
 def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=False, vehicle_type="Легковой", client_type="Физическое лицо"):
     rates_config = CONFIGS.get('utilization_rates', {})
@@ -367,7 +360,6 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
 
         return base_rate * 100.0
 
-# ==================== АКЦИЗ ====================
 
 def get_excise_rate(horsepower, rates_config):
     rates = rates_config.get('rates', [])
@@ -382,13 +374,13 @@ def get_excise_rate(horsepower, rates_config):
                 return bracket.get('rate', 0)
     return 0
 
+
 def calculate_excise(horsepower_hp, fuel_type):
     if fuel_type == "Электричка":
         return 0
     rate = get_excise_rate(horsepower_hp, CONFIGS.get('excise_rates', {}))
     return horsepower_hp * rate
 
-# ==================== НДС ====================
 
 def calculate_vat(customs_value, customs_duty, excise, client_type, destination):
     if client_type == "Физическое лицо":
@@ -401,7 +393,6 @@ def calculate_vat(customs_value, customs_duty, excise, client_type, destination)
         rate = vat_rates.get('legal', 0.20)
     return base * rate
 
-# ==================== ДОСТАВКА И УСЛУГИ ====================
 
 def get_delivery_cost(city, vehicle_type, delivery_config):
     costs = delivery_config.get('delivery_costs', {})
@@ -410,6 +401,7 @@ def get_delivery_cost(city, vehicle_type, delivery_config):
     if vehicle_type in ["Грузовой", "Пикап"]:
         cost = cost * oversize_coeff
     return cost
+
 
 def get_service_cost(service_name, vehicle_type="Легковой", country_export="Корея"):
     services = CONFIGS.get('services', {}).get('services', {})
@@ -423,7 +415,8 @@ def get_service_cost(service_name, vehicle_type="Легковой", country_expo
         return epts
     return 0
 
-# ==================== КОЛБЭКИ ДЛЯ СИНХРОНИЗАЦИИ МОЩНОСТИ ====================
+
+# ==================== КОЛБЭКИ ====================
 
 def update_hp_from_kw():
     st.session_state.hp_hp = st.session_state.hp_kw * 1.3596
@@ -431,17 +424,17 @@ def update_hp_from_kw():
 def update_kw_from_hp():
     st.session_state.hp_kw = st.session_state.hp_hp / 1.3596
 
-# ==================== ФОРМАТИРОВАНИЕ ЧИСЕЛ ====================
+
+# ==================== ФОРМАТИРОВАНИЕ ====================
 
 def format_number(num):
-    """Форматирует число с пробелами вместо запятых: 1 500 000"""
     return f"{num:,.0f}".replace(',', ' ')
 
 def format_money(num, currency="₽"):
-    """Форматирует деньги с пробелами, ПОЛНАЯ сумма без сокращений"""
     return f"{format_number(num)} {currency}"
 
-# ==================== ИНТЕРФЕЙС ====================
+
+# ==================== ГЛАВНАЯ ФУНКЦИЯ ====================
 
 def main():
     st.title("🚗 Калькулятор растаможки автомобилей")
@@ -449,41 +442,46 @@ def main():
 
     rates = get_exchange_rates()
 
+    if not rates.get('success'):
+        st.error(f"❌ Ошибка получения курсов: {rates.get('error', 'Неизвестная ошибка')}")
+        st.info("Проверьте интернет-соединение и обновите страницу.")
+        return
+
+    # Отображение даты курсов и кнопки обновления
     col_date, col_btn = st.columns([3, 1])
     with col_date:
-        if rates.get('success'):
-            date_str = rates.get('date', '')
-            try:
-                date_obj = datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-                st.caption(f"💱 Курсы валют от {date_obj.strftime('%d.%m.%Y %H:%M')} (источник: ЦБ РФ)")
-            except:
-                st.caption(f"💱 Курсы валют от {date_str}")
-        else:
-            st.caption("⚠️ Курсы валют из резервного источника (ЦБ РФ недоступен)")
+        st.caption(f"💱 Курсы валют от {rates.get('date', '')} {rates.get('time', '')} (источник: ЦБ РФ + Binance)")
     with col_btn:
         if st.button("🔄 Обновить курсы", use_container_width=True):
             rates = get_exchange_rates(force_refresh=True)
             st.rerun()
 
+    # ==================== БОКОВАЯ ПАНЕЛЬ ====================
     with st.sidebar:
         st.header("💱 Текущие курсы")
-        st.metric("🇺🇸 USD", f"{rates['USD']:.2f} ₽")
-        st.metric("🇪🇺 EUR", f"{rates['EUR']:.2f} ₽")
-        st.metric("🇨🇳 CNY", f"{rates['CNY']:.4f} ₽ (за 1 юань)")
-        st.metric("🇰🇷 KRW", f"{rates['KRW']:.4f} ₽ (за 1 вону)")
-        st.caption(f"*Курс воны: {rates['KRW']*1000:.2f} ₽ за 1000 вон")
-        st.markdown("---")
+        
+        st.metric("🇺🇸 USD (ЦБ +4%)", f"{rates.get('USD', 0):.2f} ₽")
+        st.metric("💵 USDT (Binance)", f"{rates.get('USDT', 0):.2f} ₽")
+        st.metric("🇪🇺 EUR", f"{rates.get('EUR', 0):.2f} ₽")
+        st.metric("🇨🇳 CNY", f"{rates.get('CNY', 0):.4f} ₽")
+        st.metric("🇰🇷 KRW (1000)", f"{rates.get('KRW', 0):.2f} ₽")
+        st.divider()
+        st.caption("**📌 USD/KRW:**")
+        st.metric("Физ.лица", f"{rates.get('USD_KRW_INDIVIDUAL', 0):.2f} вон")
+        st.metric("Юр.лица", f"{rates.get('USD_KRW_LEGAL', 0):.2f} вон")
+        
+        st.divider()
         st.markdown("**📌 Коэффициенты утильсбора:**")
         st.caption("• До 160 л.с. → 0.17 / 0.26")
-        st.caption("• 160-190 л.с. → 37.5 / 74.64")
-        st.caption("• Свыше 190 л.с. → выше")
-        st.caption("• Основание: ПП РФ № 1713 от 01.11.2025")
+        st.caption("• Свыше 160 л.с. → коммерческие")
+        st.caption("• Основание: ПП РФ № 1713")
 
+    # ==================== ОСНОВНАЯ ФОРМА ====================
     col1, col2 = st.columns(2)
     with col1:
         country_export = st.selectbox("🌏 Страна экспорта", ["Китай", "Корея"])
         city = st.selectbox("📍 Город доставки", [
-            "Владивосток", "Москва", "Санкт-Петербург", "Новосибирск",
+            "Владивосток", "Уссурийск", "Москва", "Санкт-Петербург", "Новосибирск",
             "Екатеринбург", "Казань", "Краснодар", "Бишкек", "Алма-Аты"
         ])
         client_type = st.selectbox("👤 Тип клиента", ["Физическое лицо", "Юридическое лицо"])
@@ -491,19 +489,28 @@ def main():
         fuel_type = st.selectbox("⛽ Тип топлива", ["Бензин", "Дизель", "Гибрид", "Электричка"])
 
     with col2:
+        # Определяем валюту и курс в зависимости от страны
         if country_export == "Китай":
             price_currency = "CNY (юань)"
-            price_rate = rates['CNY']
+            price_rate = rates.get('CNY', 0)
         else:
             price_currency = "KRW (вона)"
-            price_rate = rates['KRW']
+            price_rate = rates.get('KRW', 0)
+        
         st.metric("💵 Актуальный курс", f"1 {price_currency.split()[0]} = {price_rate:.4f} ₽")
-
-        price = st.number_input(f"💰 Стоимость авто ({price_currency})", min_value=0.0, value=50000.0, step=5000.0)
+        
+        price = st.number_input(
+            f"💰 Стоимость авто ({price_currency})",
+            min_value=0.0,
+            value=138000000.0 if country_export == "Корея" else 50000.0,
+            step=1000000.0 if country_export == "Корея" else 5000.0
+        )
+        
+        # Показываем предварительную стоимость в рублях по актуальному курсу
         price_rub_preview = price * price_rate
         st.caption(f"📌 Примерно: {format_number(price_rub_preview)} ₽ по текущему курсу")
 
-        engine_cc = st.number_input("🔧 Объем двигателя", min_value=0, value=1997, step=100, help="куб.см")
+        engine_cc = st.number_input("🔧 Объем двигателя", min_value=0, value=2999, step=100, help="куб.см")
 
         col_hp1, col_hp2 = st.columns(2)
         with col_hp1:
@@ -513,7 +520,7 @@ def main():
                 step=1.0,
                 key='hp_kw',
                 on_change=update_hp_from_kw,
-                help="Мощность двигателя в киловаттах"
+                help="Мощность в киловаттах"
             )
         with col_hp2:
             st.number_input(
@@ -522,7 +529,7 @@ def main():
                 step=1.0,
                 key='hp_hp',
                 on_change=update_kw_from_hp,
-                help="Мощность двигателя в лошадиных силах"
+                help="Мощность в лошадиных силах"
             )
 
         horsepower_kw = st.session_state.hp_kw
@@ -531,6 +538,7 @@ def main():
         weight = st.number_input("🏋️ Масса", min_value=0, value=1800, step=100, help="кг")
         manufacture_date = st.date_input("📅 Дата выпуска", value=datetime(2022, 1, 1))
 
+    # ==================== КНОПКА РАСЧЕТА ====================
     st.markdown("---")
     calculate = st.button("🧮 РАССЧИТАТЬ", type="primary", use_container_width=True)
 
@@ -539,43 +547,58 @@ def main():
         age_years = round(age_years, 2)
         is_electric = fuel_type == "Электричка"
 
+        # ============================================================
+        # 1. КОНВЕРТАЦИЯ СТОИМОСТИ АВТО (используем актуальные курсы)
+        # ============================================================
         if country_export == "Китай":
-            price_rub = price * rates['CNY']
+            price_rub = price * rates.get('CNY', 0)
             price_currency_short = "CNY"
         else:
-            price_rub = price * rates['KRW']
+            price_rub = price * rates.get('KRW', 0)
             price_currency_short = "KRW"
 
-        # ---------- КОМИССИЯ ДИЛЕРА (отдельно, в валюте) ----------
+        # ============================================================
+        # 2. КОМИССИЯ ДИЛЕРА (используем USD/RUB с наценкой 4%)
+        # ============================================================
         dealer_commission_coeff = CONFIGS.get('coefficients', {}).get('dealer_commission', {})
         if country_export == "Китай":
-            dealer_commission_currency = "CNY"
             dealer_commission_original = price * dealer_commission_coeff.get('Китай', {}).get('value', 0.15)
-            dealer_commission = dealer_commission_original * rates['CNY']
+            dealer_commission_currency = "CNY"
+            dealer_commission = dealer_commission_original * rates.get('CNY', 0)
         else:
-            dealer_commission_currency = "USD"
             dealer_commission_original = dealer_commission_coeff.get('Корея', {}).get('value', 2500)
-            dealer_commission = dealer_commission_original * rates['USD']
+            dealer_commission_currency = "USD"
+            dealer_commission = dealer_commission_original * rates.get('USD', 0)  # ← используем USD с наценкой 4%
 
-        # ---------- ДОСТАВКА ДО ГРАНИЦЫ (входит в таможенную стоимость) ----------
-        delivery_to_border = 1500 * rates['USD']
+        # ============================================================
+        # 3. ФРАХТ (доставка до границы) — используем USD/RUB с наценкой 4%
+        # ============================================================
+        delivery_to_border = 1500 * rates.get('USD', 0)  # ← используем USD с наценкой 4%
 
-        # ---------- ТАМОЖЕННАЯ СТОИМОСТЬ (без комиссии дилера) ----------
+        # ============================================================
+        # 4. ТАМОЖЕННАЯ СТОИМОСТЬ (без комиссии дилера, только авто + фрахт)
+        # ============================================================
         customs_value = price_rub + delivery_to_border
 
-        # ---------- ТАМОЖЕННЫЕ ПЛАТЕЖИ ----------
+        # ============================================================
+        # 5. ТАМОЖЕННЫЕ ПЛАТЕЖИ
+        # ============================================================
         customs_fee = calculate_customs_fee(customs_value)
-        customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates['EUR'])
+        customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates.get('EUR', 0))
         utilization = calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric, vehicle_type, client_type)
         excise = calculate_excise(horsepower_hp, fuel_type)
         vat = calculate_vat(customs_value, customs_duty, excise, client_type, city)
 
-        # ---------- РАСХОДЫ В РФ ----------
+        # ============================================================
+        # 6. РАСХОДЫ В РФ
+        # ============================================================
         delivery_cost = get_delivery_cost(city, vehicle_type, CONFIGS.get('delivery_costs', {}))
         broker_cost = get_service_cost('broker', vehicle_type, country_export)
         epts_cost = get_service_cost('epts', vehicle_type, country_export)
 
-        # ---------- ИТОГИ ----------
+        # ============================================================
+        # 7. ИТОГИ
+        # ============================================================
         total_customs = customs_fee + customs_duty + utilization + excise + vat
         total_services = dealer_commission + broker_cost + epts_cost + delivery_cost
         total_cost = price_rub + total_customs + total_services
@@ -584,7 +607,7 @@ def main():
         st.markdown("---")
         st.header("📊 РЕЗУЛЬТАТ РАСЧЕТА")
 
-        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ (основной) -----
+        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ -----
         st.markdown(
             f"""
             <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
@@ -601,14 +624,16 @@ def main():
             unsafe_allow_html=True
         )
 
-        # ----- БЛОК 2: ИТОГО ТАМОЖНЯ (отдельный разворачивающийся блок) -----
-        with st.expander(f"🛃 ИТОГО ТАМОЖНЯ: {format_money(total_customs)}", expanded=True):
-            st.write("**💰 Стоимость за границей (до границы РФ):**")
+        # ----- БЛОК 2: ИТОГО ЗА ГРАНИЦЕЙ -----
+        with st.expander(f"💰 ИТОГО ЗА ГРАНИЦЕЙ: {format_money(price_rub + delivery_to_border)}", expanded=True):
+            st.write("**Расходы за границей до границы РФ:**")
             st.write(f"• Стоимость авто: {format_number(price)} {price_currency_short} → {format_number(price_rub)} ₽")
-            st.write(f"• Фрахт (доставка до границы): {format_number(delivery_to_border)} ₽")
-            st.write(f"**• Итого таможенная стоимость: {format_number(customs_value)} ₽**")
-            st.write("")
-            st.write("**🛃 Таможенные платежи:**")
+            st.write(f"• Фрахт (доставка до границы): 1 500 USD × {rates.get('USD', 0):.2f} ₽ = {format_number(delivery_to_border)} ₽")
+            st.write(f"**• Итого: {format_number(price_rub + delivery_to_border)} ₽**")
+
+        # ----- БЛОК 3: ИТОГО НА ТАМОЖНЕ -----
+        with st.expander(f"🛃 ИТОГО НА ТАМОЖНЕ: {format_money(total_customs)}", expanded=True):
+            st.write("**Таможенные платежи:**")
             st.write(f"• Таможенный сбор (оформление): {format_number(customs_fee)} ₽")
             st.write(f"• Таможенная пошлина: {format_number(customs_duty)} ₽")
             st.write(f"• Утилизационный сбор: {format_number(utilization)} ₽")
@@ -621,8 +646,8 @@ def main():
             st.write(f"• Коэффициент: {coeff_display:.2f}")
             st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {format_number(utilization)} ₽")
 
-        # ----- БЛОК 3: ИТОГО УСЛУГИ И ДОСТАВКА (отдельный разворачивающийся блок) -----
-        with st.expander(f"🔧 ИТОГО УСЛУГИ И ДОСТАВКА: {format_money(total_services)}", expanded=True):
+        # ----- БЛОК 4: ДОСТАВКА + КОМИССИИ + БРОКЕР -----
+        with st.expander(f"🚛 ДОСТАВКА + КОМИССИИ + БРОКЕР: {format_money(total_services)}", expanded=True):
             st.write("**🔧 Комиссии и услуги:**")
             st.write(f"• Комиссия дилера: {format_number(dealer_commission_original)} {dealer_commission_currency} → {format_number(dealer_commission)} ₽")
             st.write(f"• Услуги брокера: {format_number(broker_cost)} ₽")
@@ -631,7 +656,7 @@ def main():
             st.write("**🚛 Доставка:**")
             st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
 
-        # ----- БЛОК 4: ИТОГО ПОД КЛЮЧ (разворачивающийся блок со структурой) -----
+        # ----- БЛОК 5: ИТОГО ПОД КЛЮЧ (структура) -----
         with st.expander(f"🏁 ИТОГО ПОД КЛЮЧ: {format_money(total_cost)}", expanded=False):
             st.write("**Структура итоговой стоимости:**")
             st.write(f"• Стоимость авто за границей: {format_number(price_rub)} ₽")
@@ -641,18 +666,19 @@ def main():
             st.write(f"**• ИТОГО: {format_number(total_cost)} ₽**")
             st.write("")
             st.write("**💱 Курсы, использованные в расчете:**")
-            st.write(f"• USD/RUB: {rates['USD']:.4f}")
-            st.write(f"• EUR/RUB: {rates['EUR']:.4f}")
-            st.write(f"• {price_currency_short}/RUB: {price_rate:.4f}")
+            st.write(f"• USD/RUB: {rates.get('USD', 0):.4f} ₽ (ЦБ +4%)")
+            st.write(f"• EUR/RUB: {rates.get('EUR', 0):.4f} ₽")
+            st.write(f"• {price_currency_short}/RUB: {price_rate:.4f} ₽")
+            st.write(f"• USDT/RUB: {rates.get('USDT', 0):.4f} ₽")
 
         # Информация о ставке утильсбора
         if client_type == "Физическое лицо":
             if horsepower_hp <= 160 and engine_cc <= 3000 and not is_electric:
-                st.success(f"✅ Применена **льготная ставка** утильсбора (авто до 160 л.с., {horsepower_hp:.1f} л.с.)")
+                st.success(f"✅ Применена **льготная ставка** утильсбора (до 160 л.с., {horsepower_hp:.1f} л.с.)")
             elif is_electric and horsepower_hp <= 80:
-                st.success(f"✅ Применена **льготная ставка** утильсбора (электромобиль до 80 л.с., {horsepower_hp:.1f} л.с.)")
+                st.success(f"✅ Применена **льготная ставка** утильсбора (электро до 80 л.с., {horsepower_hp:.1f} л.с.)")
             else:
-                st.warning(f"⚠️ Применена **коммерческая ставка** утильсбора (авто свыше 160 л.с., {horsepower_hp:.1f} л.с.)")
+                st.warning(f"⚠️ Применена **коммерческая ставка** утильсбора (свыше 160 л.с., {horsepower_hp:.1f} л.с.)")
 
         st.info(
             f"📅 Возраст: **{age_years} лет** | "
@@ -660,7 +686,7 @@ def main():
             f"⚙️ Объем: **{engine_cc} см³**"
         )
 
-        st.caption("⚠️ **Важно:** Данный расчет является ознакомительным. Точная сумма может отличаться. Для проверки используйте калькулятор на tks.ru")
+        st.caption("⚠️ **Важно:** Данный расчет является ознакомительным. Для проверки используйте калькулятор на tks.ru")
 
 if __name__ == "__main__":
     main()
