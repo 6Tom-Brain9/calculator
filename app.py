@@ -359,14 +359,9 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
         return base_rate * 100.0
 
 
-# ==================== АКЦИЗ (с проверкой для электро и гибридов) ====================
+# ==================== АКЦИЗ ====================
 
 def get_excise_rate(horsepower, rates_config, fuel_type):
-    """
-    Получение ставки акциза.
-    Для электромобилей и последовательных гибридов акциз = 0.
-    """
-    # Электричка и последовательные гибриды — акциз 0
     if fuel_type in ["Электричка", "Гибрид послед."]:
         return 0
     
@@ -384,7 +379,6 @@ def get_excise_rate(horsepower, rates_config, fuel_type):
 
 
 def calculate_excise(horsepower_hp, fuel_type):
-    """Расчет акциза с учетом типа топлива"""
     if fuel_type in ["Электричка", "Гибрид послед."]:
         return 0
     rate = get_excise_rate(horsepower_hp, CONFIGS.get('excise_rates', {}), fuel_type)
@@ -394,11 +388,6 @@ def calculate_excise(horsepower_hp, fuel_type):
 # ==================== НДС ====================
 
 def calculate_vat(customs_value, customs_duty, excise, client_type, destination):
-    """
-    Расчет НДС при ввозе.
-    Для физических лиц НДС = 0.
-    Для юридических лиц НДС = 20% (или 12% для Киргизии).
-    """
     if client_type == "Физическое лицо":
         return 0
     
@@ -413,6 +402,8 @@ def calculate_vat(customs_value, customs_duty, excise, client_type, destination)
     return base * rate
 
 
+# ==================== ДОСТАВКА ====================
+
 def get_delivery_cost(city, vehicle_type, delivery_config):
     costs = delivery_config.get('delivery_costs', {})
     oversize_coeff = delivery_config.get('oversize_coefficient', 1.2)
@@ -422,17 +413,60 @@ def get_delivery_cost(city, vehicle_type, delivery_config):
     return cost
 
 
-def get_service_cost(service_name, vehicle_type="Легковой", country_export="Корея"):
-    services = CONFIGS.get('services', {}).get('services', {})
-    if service_name == 'broker':
-        return services.get('broker', {}).get(vehicle_type, 10000)
-    elif service_name == 'epts':
-        epts = services.get('epts', 15000)
-        if country_export == "Китай":
-            sbkts = services.get('sbkts', 20000)
-            return max(epts, sbkts)
-        return epts
-    return 0
+# ==================== УСЛУГИ БРОКЕРА ПО СТАТЬЯМ ====================
+
+def get_broker_services(vehicle_type="Легковой", country_export="Корея"):
+    """
+    Возвращает разбивку услуг брокера по статьям
+    Аналогично Excel-файлу
+    """
+    services = CONFIGS.get('services', {}).get('broker_services', {})
+    
+    # Базовые услуги для всех
+    broker_items = {
+        'Таможенное оформление': services.get('оформление', 10000),
+        'Погрузо-разгрузочные работы (ПРР)': services.get('прр', 35000),
+        'Экспертиза, досмотр': services.get('экспертиза', 2500),
+        'Перегон (СВХ → лаборатория → стоянка)': services.get('перегон', 7000),
+        'Стоянка (за период)': services.get('стоянка', 150) * 5,  # 5 дней
+    }
+    
+    # СБКТС/ЭПТС в зависимости от страны
+    if country_export == "Китай":
+        broker_items['СБКТС (свидетельство безопасности)'] = services.get('сбктс', 20000)
+    else:
+        broker_items['ЭПТС (электронный ПТС)'] = services.get('эптс', 15000)
+    
+    # ГЛОНАС (для авто до 3 лет)
+    # будет добавлено позже, когда появится логика по возрасту
+    
+    return broker_items
+
+
+def calculate_broker_total(vehicle_type="Легковой", country_export="Корея"):
+    """Рассчитывает общую сумму услуг брокера"""
+    items = get_broker_services(vehicle_type, country_export)
+    return sum(items.values())
+
+
+# ==================== УСЛУГА "ПОД КЛЮЧ" ====================
+
+def get_service_under_key(client_type, city):
+    """
+    Расчет услуги "Под ключ"
+    - Юрлицо: 0 ₽ (по умолчанию, можно менять)
+    - Физлицо: 40 000 ₽ (по умолчанию, можно менять)
+    - Если город НЕ Уссурийск и НЕ Владивосток → +10 000 ₽ для физлиц
+    """
+    if client_type == "Юридическое лицо":
+        base = 0
+    else:
+        base = 40000
+        # Доплата за удаленный город
+        if city not in ["Уссурийск", "Владивосток"]:
+            base += 10000
+    
+    return base
 
 
 # ==================== КОЛБЭКИ ====================
@@ -490,18 +524,20 @@ def main():
         st.metric("Юр.лица", f"{rates.get('USD_KRW_LEGAL', 0):.2f} вон")
         
         st.divider()
-        st.markdown("**📌 Коэффициенты утильсбора:**")
-        st.caption("• До 160 л.с. → 0.17 / 0.26")
-        st.caption("• Свыше 160 л.с. → коммерческие")
-        st.caption("• Основание: ПП РФ № 1713")
+        st.markdown("**📌 Услуга 'Под ключ':**")
+        st.caption("• Юр.лицо → 0 ₽ (по умолчанию)")
+        st.caption("• Физ.лицо → 40 000 ₽ (по умолчанию)")
+        st.caption("• Если город не Вл/Усс → +10 000 ₽")
         
         st.divider()
-        st.markdown("**📌 Акциз и НДС:**")
-        st.caption("• Электричка → акциз 0 ₽")
-        st.caption("• Гибрид послед. → акциз 0 ₽")
-        st.caption("• Бензин/Дизель → акциз по ставке")
-        st.caption("• НДС для физлиц → 0 ₽")
-        st.caption("• НДС для юрлиц → 20% (12% для Киргизии)")
+        st.markdown("**📌 Услуги брокера:**")
+        st.caption("• Оформление: 10 000 ₽")
+        st.caption("• ПРР: 35 000 ₽")
+        st.caption("• Экспертиза: 2 500 ₽")
+        st.caption("• Перегон: 7 000 ₽")
+        st.caption("• Стоянка: 750 ₽ (5 дней)")
+        st.caption("• СБКТС (Китай): 20 000 ₽")
+        st.caption("• ЭПТС (Корея): 15 000 ₽")
 
     # ==================== ОСНОВНАЯ ФОРМА ====================
     col1, col2 = st.columns(2)
@@ -610,25 +646,30 @@ def main():
         customs_fee = calculate_customs_fee(customs_value)
         customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates.get('EUR', 0))
         utilization = calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric, vehicle_type, client_type)
-        
-        # Акциз с учетом типа топлива
         excise = calculate_excise(horsepower_hp, fuel_type)
-        
-        # НДС
         vat = calculate_vat(customs_value, customs_duty, excise, client_type, city)
 
         # ============================================================
-        # 6. РАСХОДЫ В РФ
+        # 6. УСЛУГИ БРОКЕРА (ПО СТАТЬЯМ)
         # ============================================================
-        delivery_cost = get_delivery_cost(city, vehicle_type, CONFIGS.get('delivery_costs', {}))
-        broker_cost = get_service_cost('broker', vehicle_type, country_export)
-        epts_cost = get_service_cost('epts', vehicle_type, country_export)
+        broker_items = get_broker_services(vehicle_type, country_export)
+        broker_total = sum(broker_items.values())
 
         # ============================================================
-        # 7. ИТОГИ
+        # 7. УСЛУГА "ПОД КЛЮЧ"
+        # ============================================================
+        service_under_key = get_service_under_key(client_type, city)
+
+        # ============================================================
+        # 8. ДОСТАВКА ПО РФ
+        # ============================================================
+        delivery_cost = get_delivery_cost(city, vehicle_type, CONFIGS.get('delivery_costs', {}))
+
+        # ============================================================
+        # 9. ИТОГИ
         # ============================================================
         total_customs = customs_fee + customs_duty + utilization + excise + vat
-        total_services = dealer_commission + broker_cost + epts_cost + delivery_cost
+        total_services = dealer_commission + broker_total + service_under_key + delivery_cost
         total_cost = price_rub + total_customs + total_services
 
         # ==================== ОТОБРАЖЕНИЕ РЕЗУЛЬТАТОВ ====================
@@ -682,8 +723,15 @@ def main():
         with st.expander(f"🚛 ДОСТАВКА + КОМИССИИ + БРОКЕР: {format_money(total_services)}", expanded=True):
             st.write("**🔧 Комиссии и услуги:**")
             st.write(f"• Комиссия дилера: {format_number(dealer_commission_original)} {dealer_commission_currency} → {format_number(dealer_commission)} ₽")
-            st.write(f"• Услуги брокера: {format_number(broker_cost)} ₽")
-            st.write(f"• ЭПТС/СБКТС: {format_number(epts_cost)} ₽")
+            st.write("")
+            st.write("**📋 Услуги брокера (по статьям):**")
+            for item, amount in broker_items.items():
+                st.write(f"  • {item}: {format_number(amount)} ₽")
+            st.write("")
+            st.write("**🔑 Услуга 'Под ключ':**")
+            st.write(f"  • {format_number(service_under_key)} ₽")
+            if client_type == "Физическое лицо" and city not in ["Уссурийск", "Владивосток"]:
+                st.write("  *(включая доплату 10 000 ₽ за удаленный город)*")
             st.write("")
             st.write("**🚛 Доставка:**")
             st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
@@ -696,12 +744,6 @@ def main():
             st.write(f"• Услуги и доставка: {format_number(total_services)} ₽")
             st.write("")
             st.write(f"**• ИТОГО: {format_number(total_cost)} ₽**")
-            st.write("")
-            st.write("**💱 Курсы, использованные в расчете:**")
-            st.write(f"• USD/RUB: {rates.get('USD', 0):.4f} ₽ (ЦБ +4%)")
-            st.write(f"• EUR/RUB: {rates.get('EUR', 0):.4f} ₽")
-            st.write(f"• {price_currency_short}/RUB: {price_rate:.4f} ₽")
-            st.write(f"• USDT/RUB: {rates.get('USDT', 0):.4f} ₽")
 
         # Информация о ставках
         if client_type == "Физическое лицо":
@@ -711,12 +753,6 @@ def main():
                 st.success(f"✅ Применена **льготная ставка** утильсбора (электро до 80 л.с., {horsepower_hp:.1f} л.с.)")
             else:
                 st.warning(f"⚠️ Применена **коммерческая ставка** утильсбора (свыше 160 л.с., {horsepower_hp:.1f} л.с.)")
-        
-        # Информация об акцизе
-        if fuel_type in ["Электричка", "Гибрид послед."]:
-            st.info(f"🔌 Акциз = 0 ₽ (для {fuel_type})")
-        else:
-            st.info(f"⛽ Акциз: {horsepower_hp} л.с. × ставка = {format_number(excise)} ₽")
 
         st.info(
             f"📅 Возраст: **{age_years} лет** | "
