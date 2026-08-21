@@ -1,5 +1,17 @@
 # Стоимость услуг
 services:
+  # ===== УСЛУГИ БРОКЕРА ПО СТАТЬЯМ =====
+  broker_services:
+    оформление: 10000
+    прр: 35000
+    экспертиза: 2500
+    перегон: 7000
+    стоянка: 150
+    сбктс: 20000
+    эптс: 15000
+    глонас: 40000
+  
+  # ===== ОБЩИЕ УСЛУГИ =====
   broker:
     Легковой: 10000
     Грузовой: 10000
@@ -7,27 +19,27 @@ services:
     Мотоцикл: 5000
     Электричка: 10000
 
-  epts: 15000           # ЭПТС (электронный ПТС)
-  sbkts: 20000          # СБКТС (для авто из Китая)
-  glonas: 40000         # ГЛОНАС
-  prr: 35000            # Погрузо-разгрузочные работы
-  expertize: 2500       # Экспертиза, досмотр
-  transfer: 7000        # Перегон (СВХ → лаборатория → стоянка → ТК)
-  parking: 150          # Стоянка в день
-  storage_free_days: 5  # Бесплатные дни хранения на СВХ
-  storage_daily: 300    # Плата за хранение после бесплатных дней
+  epts: 15000
+  sbkts: 20000
+  glonas: 40000
+  prr: 35000
+  expertize: 2500
+  transfer: 7000
+  parking: 150
+  storage_free_days: 5
+  storage_daily: 300
 
-# Киргизия (сомы)
+# Киргизия
 kyrgyzstan:
-  registration_first: 1000     # первичная регистрация
-  registration_second: 3000    # вторичная регистрация
-  laboratory: 2000             # лаборатория
-  customs_service_percent: 0.05   # 5% от стоимости
-  customs_service_min: 4000    # минимум 4000 сом
-  svh_first_day: 500           # СВХ первый день
-  svh_next_days: 100           # СВХ последующие дни
+  registration_first: 1000
+  registration_second: 3000
+  laboratory: 2000
+  customs_service_percent: 0.05
+  customs_service_min: 4000
+  svh_first_day: 500
+  svh_next_days: 100
 
 # Казахстан
 kazakhstan:
-  mrp: 3692                    # Месячный расчетный показатель
-  rate_light: 0.5              # для легковых
+  mrp: 3692
+  rate_light: 0.5
