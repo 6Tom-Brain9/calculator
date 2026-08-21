@@ -359,7 +359,17 @@ def calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric=F
         return base_rate * 100.0
 
 
-def get_excise_rate(horsepower, rates_config):
+# ==================== АКЦИЗ (с проверкой для электро и гибридов) ====================
+
+def get_excise_rate(horsepower, rates_config, fuel_type):
+    """
+    Получение ставки акциза.
+    Для электромобилей и последовательных гибридов акциз = 0.
+    """
+    # Электричка и последовательные гибриды — акциз 0
+    if fuel_type in ["Электричка", "Гибрид послед."]:
+        return 0
+    
     rates = rates_config.get('rates', [])
     for bracket in rates:
         min_hp = bracket.get('min_hp', 0)
@@ -374,21 +384,32 @@ def get_excise_rate(horsepower, rates_config):
 
 
 def calculate_excise(horsepower_hp, fuel_type):
-    if fuel_type == "Электричка":
+    """Расчет акциза с учетом типа топлива"""
+    if fuel_type in ["Электричка", "Гибрид послед."]:
         return 0
-    rate = get_excise_rate(horsepower_hp, CONFIGS.get('excise_rates', {}))
+    rate = get_excise_rate(horsepower_hp, CONFIGS.get('excise_rates', {}), fuel_type)
     return horsepower_hp * rate
 
 
+# ==================== НДС ====================
+
 def calculate_vat(customs_value, customs_duty, excise, client_type, destination):
+    """
+    Расчет НДС при ввозе.
+    Для физических лиц НДС = 0.
+    Для юридических лиц НДС = 20% (или 12% для Киргизии).
+    """
     if client_type == "Физическое лицо":
         return 0
+    
     base = customs_value + customs_duty + excise
     vat_rates = CONFIGS.get('coefficients', {}).get('taxes', {}).get('vat_import', {})
+    
     if destination == "Бишкек":
         rate = vat_rates.get('kyrgyzstan_legal', 0.12)
     else:
         rate = vat_rates.get('legal', 0.20)
+    
     return base * rate
 
 
@@ -473,6 +494,14 @@ def main():
         st.caption("• До 160 л.с. → 0.17 / 0.26")
         st.caption("• Свыше 160 л.с. → коммерческие")
         st.caption("• Основание: ПП РФ № 1713")
+        
+        st.divider()
+        st.markdown("**📌 Акциз и НДС:**")
+        st.caption("• Электричка → акциз 0 ₽")
+        st.caption("• Гибрид послед. → акциз 0 ₽")
+        st.caption("• Бензин/Дизель → акциз по ставке")
+        st.caption("• НДС для физлиц → 0 ₽")
+        st.caption("• НДС для юрлиц → 20% (12% для Киргизии)")
 
     # ==================== ОСНОВНАЯ ФОРМА ====================
     col1, col2 = st.columns(2)
@@ -484,7 +513,7 @@ def main():
         ])
         client_type = st.selectbox("👤 Тип клиента", ["Физическое лицо", "Юридическое лицо"])
         vehicle_type = st.selectbox("🚙 Тип транспорта", ["Легковой", "Грузовой", "Пикап", "Электричка"])
-        fuel_type = st.selectbox("⛽ Тип топлива", ["Бензин", "Дизель", "Гибрид", "Электричка"])
+        fuel_type = st.selectbox("⛽ Тип топлива", ["Бензин", "Дизель", "Гибрид", "Гибрид послед.", "Электричка"])
 
     with col2:
         if country_export == "Китай":
@@ -540,7 +569,7 @@ def main():
     if calculate:
         age_years = (datetime.now() - datetime(manufacture_date.year, manufacture_date.month, manufacture_date.day)).days / 365.25
         age_years = round(age_years, 2)
-        is_electric = fuel_type == "Электричка"
+        is_electric = fuel_type in ["Электричка", "Гибрид послед."]
 
         # ============================================================
         # 1. КОНВЕРТАЦИЯ СТОИМОСТИ
@@ -581,7 +610,11 @@ def main():
         customs_fee = calculate_customs_fee(customs_value)
         customs_duty = calculate_customs_duty_individual(customs_value, engine_cc, age_years, rates.get('EUR', 0))
         utilization = calculate_utilization_fee(engine_cc, horsepower_hp, age_years, is_electric, vehicle_type, client_type)
+        
+        # Акциз с учетом типа топлива
         excise = calculate_excise(horsepower_hp, fuel_type)
+        
+        # НДС
         vat = calculate_vat(customs_value, customs_duty, excise, client_type, city)
 
         # ============================================================
@@ -602,7 +635,7 @@ def main():
         st.markdown("---")
         st.header("📊 РЕЗУЛЬТАТ РАСЧЕТА")
 
-        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ (основной, не разворачивается) -----
+        # ----- БЛОК 1: ИТОГО ПОД КЛЮЧ -----
         st.markdown(
             f"""
             <div style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); 
@@ -619,21 +652,25 @@ def main():
             unsafe_allow_html=True
         )
 
-        # ----- БЛОК 2: ИТОГО ЗА ГРАНИЦЕЙ (разворачивается) -----
+        # ----- БЛОК 2: ИТОГО ЗА ГРАНИЦЕЙ -----
         with st.expander(f"💰 ИТОГО ЗА ГРАНИЦЕЙ: {format_money(price_rub + delivery_to_border)}", expanded=True):
             st.write("**Расходы за границей до границы РФ:**")
             st.write(f"• Стоимость авто: {format_number(price)} {price_currency_short} → {format_number(price_rub)} ₽")
             st.write(f"• Фрахт (доставка до границы): 1 500 USD × {rates.get('USD', 0):.2f} ₽ = {format_number(delivery_to_border)} ₽")
             st.write(f"**• Итого: {format_number(price_rub + delivery_to_border)} ₽**")
 
-        # ----- БЛОК 3: ИТОГО НА ТАМОЖНЕ (разворачивается) -----
+        # ----- БЛОК 3: ИТОГО НА ТАМОЖНЕ -----
         with st.expander(f"🛃 ИТОГО НА ТАМОЖНЕ: {format_money(total_customs)}", expanded=True):
             st.write("**Таможенные платежи:**")
             st.write(f"• Таможенный сбор (оформление): {format_number(customs_fee)} ₽")
             st.write(f"• Таможенная пошлина: {format_number(customs_duty)} ₽")
             st.write(f"• Утилизационный сбор: {format_number(utilization)} ₽")
             st.write(f"• Акциз: {format_number(excise)} ₽")
+            if fuel_type in ["Электричка", "Гибрид послед."]:
+                st.write("  *(Акциз = 0 для электромобилей и последовательных гибридов)*")
             st.write(f"• НДС: {format_number(vat)} ₽")
+            if client_type == "Физическое лицо":
+                st.write("  *(НДС = 0 для физических лиц)*")
             st.write("")
             st.write("**📌 Детали расчета утильсбора:**")
             st.write(f"• Базовая ставка: 20 000 ₽")
@@ -641,7 +678,7 @@ def main():
             st.write(f"• Коэффициент: {coeff_display:.2f}")
             st.write(f"• Итого: 20 000 × {coeff_display:.2f} = {format_number(utilization)} ₽")
 
-        # ----- БЛОК 4: ДОСТАВКА + КОМИССИИ + БРОКЕР (разворачивается) -----
+        # ----- БЛОК 4: ДОСТАВКА + КОМИССИИ + БРОКЕР -----
         with st.expander(f"🚛 ДОСТАВКА + КОМИССИИ + БРОКЕР: {format_money(total_services)}", expanded=True):
             st.write("**🔧 Комиссии и услуги:**")
             st.write(f"• Комиссия дилера: {format_number(dealer_commission_original)} {dealer_commission_currency} → {format_number(dealer_commission)} ₽")
@@ -651,7 +688,7 @@ def main():
             st.write("**🚛 Доставка:**")
             st.write(f"• Доставка по РФ: {format_number(delivery_cost)} ₽")
 
-        # ----- БЛОК 5: ИТОГО ПОД КЛЮЧ (структура, разворачивается) -----
+        # ----- БЛОК 5: ИТОГО ПОД КЛЮЧ (структура) -----
         with st.expander(f"🏁 ИТОГО ПОД КЛЮЧ (структура): {format_money(total_cost)}", expanded=False):
             st.write("**Структура итоговой стоимости:**")
             st.write(f"• Стоимость авто за границей: {format_number(price_rub)} ₽")
@@ -666,7 +703,7 @@ def main():
             st.write(f"• {price_currency_short}/RUB: {price_rate:.4f} ₽")
             st.write(f"• USDT/RUB: {rates.get('USDT', 0):.4f} ₽")
 
-        # Информация о ставке утильсбора
+        # Информация о ставках
         if client_type == "Физическое лицо":
             if horsepower_hp <= 160 and engine_cc <= 3000 and not is_electric:
                 st.success(f"✅ Применена **льготная ставка** утильсбора (до 160 л.с., {horsepower_hp:.1f} л.с.)")
@@ -674,6 +711,12 @@ def main():
                 st.success(f"✅ Применена **льготная ставка** утильсбора (электро до 80 л.с., {horsepower_hp:.1f} л.с.)")
             else:
                 st.warning(f"⚠️ Применена **коммерческая ставка** утильсбора (свыше 160 л.с., {horsepower_hp:.1f} л.с.)")
+        
+        # Информация об акцизе
+        if fuel_type in ["Электричка", "Гибрид послед."]:
+            st.info(f"🔌 Акциз = 0 ₽ (для {fuel_type})")
+        else:
+            st.info(f"⛽ Акциз: {horsepower_hp} л.с. × ставка = {format_number(excise)} ₽")
 
         st.info(
             f"📅 Возраст: **{age_years} лет** | "
